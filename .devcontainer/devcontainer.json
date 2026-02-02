@@ -1,0 +1,18 @@
+{
+  "name": "Dotfiles Test Environment",
+  "image": "mcr.microsoft.com/devcontainers/base:debian",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": true
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  },
+  "onCreateCommand": "./install.sh",
+  "remoteUser": "vscode"
+}

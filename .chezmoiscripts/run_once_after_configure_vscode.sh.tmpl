@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Copy VS Code settings to Mac location if on Darwin
+{{ if eq .chezmoi.os "darwin" -}}
+SOURCE="$HOME/.config/Code/User/settings.json"
+DEST="$HOME/Library/Application Support/Code/User/settings.json"
+
+if [ -f "$SOURCE" ]; then
+  mkdir -p "$(dirname "$DEST")"
+  # We copy instead of symlink to avoid issues with iCloud/sync conflicts if any,
+  # but symlink is better for dotfiles.
+  # Let's symlink if not exists.
+  if [ ! -L "$DEST" ] && [ ! -f "$DEST" ]; then
+    ln -s "$SOURCE" "$DEST"
+  fi
+fi
+{{ end -}}

@@ -1,0 +1,11 @@
+{{- /* .chezmoi.toml.tmpl */ -}}
+{{- $osid := .chezmoi.os -}}
+{{- if hasKey .chezmoi.osRelease "id" -}}
+{{-   $osid = printf "%s-%s" .chezmoi.os .chezmoi.osRelease.id -}}
+{{- end -}}
+
+{{- $is_devcontainer := or (env "REMOTE_CONTAINERS") (env "CODESPACES") (env "VSCODE_REMOTE_CONTAINERS") (eq .chezmoi.username "vscode") -}}
+
+[data]
+    osid = {{ $osid | quote }}
+    is_devcontainer = {{ $is_devcontainer }}

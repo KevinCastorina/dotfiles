@@ -1,0 +1,23 @@
+{{- if eq .chezmoi.os "darwin" -}}
+tap "homebrew/cask-fonts"
+cask "font-fira-code-nerd-font"
+# visual-studio-code is often useful, but user specifically asked for opencode
+# We assume opencode is available via brew as requested.
+cask "opencode"
+{{- end }}
+
+brew "ripgrep"
+brew "bat"
+brew "eza"
+brew "fzf"
+brew "zoxide"
+brew "fd"
+brew "tldr"
+brew "chezmoi"
+# Ensure chezmoi is updated via brew as well
+
+{{- if eq .chezmoi.os "linux" -}}
+# Linux specific dependencies if any
+# opencode via brew on linux
+brew "opencode"
+{{- end -}}
