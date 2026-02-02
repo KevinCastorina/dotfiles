@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_once_cleanup_omz.sh.tmpl
+# Cleans up Oh My Zsh installation with user choice
+
+set -e
+
+OMZ_DIR="$HOME/.oh-my-zsh"
+
+echo "========================================"
+echo "Oh My Zsh Migration Cleanup"
+echo "========================================"
+
+if [ -d "$OMZ_DIR" ]; then
+    echo ""
+    echo "An existing Oh My Zsh installation was found at:"
+    echo "  $OMZ_DIR"
+    echo ""
+    echo "We're migrating away from Oh My Zsh to use native"
+    echo "shell configuration files (.zshrc for macOS, .bashrc for Linux)."
+    echo ""
+    echo "What would you like to do?"
+    echo ""
+    echo "  1) Backup Oh My Zsh and keep it (recommended)"
+    echo "     - Renames ~/.oh-my-zsh to ~/.oh-my-zsh.backup.<timestamp>"
+    echo "     - Preserves everything in case you want to restore later"
+    echo ""
+    echo "  2) Remove Oh My Zsh completely"
+    echo "     - Permanently deletes ~/.oh-my-zsh directory"
+    echo "     - Cannot be undone"
+    echo ""
+    echo "  3) Skip (leave Oh My Zsh as-is)"
+    echo "     - Keeps everything unchanged"
+    echo "     - You can manually remove later if needed"
+    echo ""
+    
+    # Default to option 1 (backup) if non-interactive
+    if [ ! -t 0 ]; then
+        echo "Non-interactive environment detected. Defaulting to backup option."
+        choice="1"
+    else
+        read -p "Choose (1/2/3) [default: 1]: " choice
+        choice=${choice:-1}
+    fi
+    
+    case $choice in
+        1|""|"backup")
+            BACKUP_DIR="$OMZ_DIR.backup.$(date +%Y%m%d_%H%M%S)"
+            echo ""
+            echo "Backing up Oh My Zsh to:"
+            echo "  $BACKUP_DIR"
+            mv "$OMZ_DIR" "$BACKUP_DIR"
+            echo "✓ Oh My Zsh backed up successfully"
+            echo ""
+            echo "Your new shell configuration will be used automatically."
+            echo "You can restore Oh My Zsh later by moving the backup back:"
+            echo "  mv $BACKUP_DIR ~/.oh-my-zsh"
+            ;;
+        2|"remove"|"delete")
+            echo ""
+            echo "WARNING: This will permanently delete ~/.oh-my-zsh"
+            if [ -t 0 ]; then
+                read -p "Are you sure? (yes/no): " confirm
+                if [ "$confirm" != "yes" ]; then
+                    echo "Aborted. Oh My Zsh will be kept."
+                    exit 0
+                fi
+            fi
+            echo ""
+            echo "Removing Oh My Zsh..."
+            rm -rf "$OMZ_DIR"
+            echo "✓ Oh My Zsh removed successfully"
+            ;;
+        3|"skip")
+            echo ""
+            echo "Skipping Oh My Zsh cleanup."
+            echo "The directory will remain at: $OMZ_DIR"
+            echo "Note: Your new shell configuration will still be applied."
+            ;;
+        *)
+            echo ""
+            echo "Invalid choice. Defaulting to backup option."
+            BACKUP_DIR="$OMZ_DIR.backup.$(date +%Y%m%d_%H%M%S)"
+            mv "$OMZ_DIR" "$BACKUP_DIR"
+            echo "✓ Oh My Zsh backed up to: $BACKUP_DIR"
+            ;;
+    esac
+    
+    echo ""
+    echo "========================================"
+    echo "Cleanup completed!"
+    echo "========================================"
+else
+    echo ""
+    echo "No Oh My Zsh installation found."
+    echo "Nothing to clean up."
+    echo ""
+fi

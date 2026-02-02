@@ -40,7 +40,7 @@ fi
 if command -v brew >/dev/null 2>&1; then
   echo "Brew found. Bundling packages..."
   # We use the Brewfile managed by chezmoi (~/.Brewfile)
-  brew bundle --global --no-lock
+  brew bundle --global
 else
   echo "Warning: Homebrew not available. Skipping package installation."
 fi

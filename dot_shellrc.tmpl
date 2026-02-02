@@ -1,0 +1,137 @@
+{{- if eq .chezmoi.os "darwin" -}}
+# .zshrc for macOS (managed by chezmoi)
+{{- else -}}
+# .bashrc for Linux (managed by chezmoi)
+{{- end -}}
+
+# =============================================================================
+# Path Configuration
+# =============================================================================
+
+# User local bin
+export PATH=$HOME/.local/bin:$PATH
+
+# Bun installation
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+# Homebrew Setup
+if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+elif [ -d "$HOME/.linuxbrew" ]; then
+    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+elif [ -d "/opt/homebrew" ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -x "/usr/local/bin/brew" ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+# =============================================================================
+# Editor Configuration
+# =============================================================================
+
+export EDITOR='vim'
+if command -v code >/dev/null 2>&1; then
+    export EDITOR='code'
+fi
+
+# =============================================================================
+# Modern CLI Replacements
+# =============================================================================
+
+# bat - cat replacement with syntax highlighting
+if command -v bat >/dev/null 2>&1; then
+    alias cat='bat'
+fi
+
+# eza - ls replacement
+# Icons are enabled only if Nerd Font is detected via DOTFILES_ICONS=1
+if command -v eza >/dev/null 2>&1; then
+    if [ "$DOTFILES_ICONS" = "1" ]; then
+        alias ls='eza --icons'
+        alias ll='eza -l --icons'
+        alias la='eza -la --icons'
+    else
+        alias ls='eza'
+        alias ll='eza -l'
+        alias la='eza -la'
+    fi
+fi
+
+# ripgrep - grep replacement
+if command -v rg >/dev/null 2>&1; then
+    alias grep='rg'
+fi
+
+# =============================================================================
+# Tool Integrations
+# =============================================================================
+
+{{- if eq .chezmoi.os "darwin" }}
+# Zoxide for Zsh
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init zsh --cmd cd)"
+fi
+
+# FZF for Zsh
+if command -v fzf >/dev/null 2>&1; then
+    [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+    source <(fzf --zsh) 2>/dev/null || true
+fi
+{{- else }}
+# Zoxide for Bash
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init bash --cmd cd)"
+fi
+
+# FZF for Bash
+if command -v fzf >/dev/null 2>&1; then
+    [ -f ~/.fzf.bash ] && source ~/.fzf.bash
+    source <(fzf --bash) 2>/dev/null || true
+fi
+{{- end }}
+
+# Bun completions
+if [ -f "$HOME/.bun/_bun" ]; then
+    {{- if eq .chezmoi.os "darwin" }}
+    fpath+="$HOME/.bun/completions"
+    {{- else }}
+    . "$HOME/.bun/_bun"
+    {{- end }}
+fi
+
+# =============================================================================
+# Shell-Specific Configuration
+# =============================================================================
+
+{{- if eq .chezmoi.os "darwin" }}
+# Zsh-specific settings
+# Enable zsh completions
+autoload -Uz compinit && compinit
+
+# History configuration
+HISTFILE=~/.zsh_history
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt HIST_IGNORE_SPACE
+{{- else }}
+# Bash-specific settings
+# Enable bash completions
+if [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+fi
+
+# History configuration
+export HISTFILE=~/.bash_history
+export HISTSIZE=10000
+export HISTFILESIZE=10000
+shopt -s histappend
+shopt -s cmdhist
+{{- end }}
+
+# =============================================================================
+# User Configuration
+# =============================================================================
+# Add your custom configurations below this line

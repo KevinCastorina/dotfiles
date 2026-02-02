@@ -14,7 +14,7 @@ brew "zoxide"
 brew "fd"
 brew "tldr"
 brew "chezmoi"
-# Ensure chezmoi is updated via brew as well
+# Bun is installed via curl in run_onchange_install-bun.sh.tmpl
 
 {{- if eq .chezmoi.os "linux" -}}
 # Linux specific dependencies if any
