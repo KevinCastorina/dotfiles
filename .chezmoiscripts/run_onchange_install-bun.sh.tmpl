@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-bun.sh.tmpl
+# Automatically installs bun if not present
+
+set -e
+
+{{- $shellrc_file := ".bashrc" -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{-   $shellrc_file = ".zshrc" -}}
+{{- end -}}
+
+BUN_INSTALL_DIR="$HOME/.bun"
+BUN_BIN="$BUN_INSTALL_DIR/bin/bun"
+
+echo "========================================"
+echo "Bun Installation Check"
+echo "========================================"
+
+# Check if bun is already installed and working
+if command -v bun >/dev/null 2>&1; then
+    echo "✓ Bun is already installed: $(which bun)"
+    echo "  Version: $(bun --version)"
+    exit 0
+fi
+
+# Check if bun exists in the expected location but not in PATH
+if [ -x "$BUN_BIN" ]; then
+    echo "✓ Bun found at $BUN_BIN but not in PATH"
+    echo "  Adding to PATH..."
+    export PATH="$BUN_INSTALL_DIR/bin:$PATH"
+    echo "  Version: $($BUN_BIN --version)"
+    exit 0
+fi
+
+# Bun is not installed, proceed with installation
+echo ""
+echo "Bun is not installed."
+echo "Installing bun using the official installer..."
+echo ""
+
+# Install bun using the official installer
+curl -fsSL https://bun.sh/install | bash
+
+# Setup completions
+if [ -x "$BUN_BIN" ]; then
+    echo ""
+    echo "Setting up bun completions..."
+    "$BUN_BIN" completions > /dev/null 2>&1 || true
+    echo "✓ Completions configured"
+fi
+
+# Verify installation
+if [ -x "$BUN_BIN" ]; then
+    echo ""
+    echo "✓ Bun installed successfully!"
+    export PATH="$BUN_INSTALL_DIR/bin:$PATH"
+    echo "  Location: $BUN_BIN"
+    echo "  Version: $($BUN_BIN --version)"
+    echo ""
+    echo "Bun has been added to your PATH in the shell configuration."
+    echo "To use bun immediately, run: source ~/{{ $shellrc_file }}"
+else
+    echo "ERROR: Bun installation failed"
+    exit 1
+fi
+
+echo "========================================"

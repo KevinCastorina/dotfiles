@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_deploy-shell-config.sh.tmpl
+# Deploys shell configuration based on OS
+# This script runs on every change to ensure the correct shell config is in place
+
+set -e
+
+SOURCE_TEMPLATE="{{ .chezmoi.sourceDir }}/dot_shellrc.tmpl"
+{{- if eq .chezmoi.os "darwin" }}
+TARGET_FILE="$HOME/.zshrc"
+{{- else }}
+TARGET_FILE="$HOME/.bashrc"
+{{- end }}
+
+echo "========================================"
+echo "Deploying Shell Configuration"
+echo "========================================"
+echo ""
+echo "OS: {{ .chezmoi.os }}"
+echo "Target: $TARGET_FILE"
+echo ""
+
+# Check if source template exists
+if [ ! -f "$SOURCE_TEMPLATE" ]; then
+    echo "ERROR: Source template not found: $SOURCE_TEMPLATE"
+    exit 1
+fi
+
+# Render the template using chezmoi's templating
+echo "Rendering template..."
+chezmoi execute-template --source-path < "$SOURCE_TEMPLATE" > "$TARGET_FILE"
+
+# Verify the file was created
+if [ -f "$TARGET_FILE" ]; then
+    echo "✓ Shell configuration deployed successfully to: $TARGET_FILE"
+    echo ""
+    echo "Configuration includes:"
+    echo "  • Path configuration (local bin, bun, homebrew)"
+    echo "  • Modern CLI replacements (bat, eza, ripgrep)"
+    echo "  • Tool integrations (zoxide, fzf)"
+    echo "  • Shell-specific settings ({{ .chezmoi.os }})"
+    echo ""
+    echo "To apply changes, reload your shell or run:"
+    {{- if eq .chezmoi.os "darwin" }}
+    echo "  source ~/.zshrc"
+    {{- else }}
+    echo "  source ~/.bashrc"
+    {{- end }}
+else
+    echo "ERROR: Failed to create target file: $TARGET_FILE"
+    exit 1
+fi
+
+echo "========================================"

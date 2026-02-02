@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_once_install_omz.sh.tmpl
+
+set -e
+
+OMZ_DIR="$HOME/.oh-my-zsh"
+ZSH_CUSTOM="$OMZ_DIR/custom"
+
+if [ ! -d "$OMZ_DIR" ]; then
+  echo "Installing Oh My Zsh..."
+  # Use unattended to avoid chsh
+  git clone https://github.com/ohmyzsh/ohmyzsh.git "$OMZ_DIR"
+fi
+
+# Plugins
+PLUGINS_DIR="$ZSH_CUSTOM/plugins"
+mkdir -p "$PLUGINS_DIR"
+
+if [ ! -d "$PLUGINS_DIR/zsh-autosuggestions" ]; then
+  echo "Installing zsh-autosuggestions..."
+  git clone https://github.com/zsh-users/zsh-autosuggestions "$PLUGINS_DIR/zsh-autosuggestions"
+fi
+
+if [ ! -d "$PLUGINS_DIR/zsh-syntax-highlighting" ]; then
+  echo "Installing zsh-syntax-highlighting..."
+  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$PLUGINS_DIR/zsh-syntax-highlighting"
+fi

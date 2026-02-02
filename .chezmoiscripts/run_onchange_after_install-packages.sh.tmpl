@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_before_install-packages.sh.tmpl
+
+set -e
+
+{{ if eq .chezmoi.os "linux" -}}
+# Linux Strategy: Use Linuxbrew
+if ! command -v brew >/dev/null 2>&1; then
+  echo "Homebrew not found. Installing Linuxbrew locally..."
+  # Install to ~/.linuxbrew without sudo
+  export HOMEBREW_PREFIX="$HOME/.linuxbrew"
+  mkdir -p "$HOMEBREW_PREFIX"
+  curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$HOMEBREW_PREFIX"
+
+  # Add to path for this session
+  eval "$($HOMEBREW_PREFIX/bin/brew shellenv)"
+
+  # Ensure we have a C compiler if possible, otherwise brew might fail compiling bottles.
+  # But we hope for pre-built bottles.
+fi
+
+# Ensure brew is in PATH for future scripts (though changes here only affect this script usually, unless we write to rc files)
+# We will write to rc files in the zsh step. Here we just need it for bundling.
+if [ -d "$HOME/.linuxbrew" ]; then
+    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+elif [ -d "/home/linuxbrew/.linuxbrew" ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+fi
+{{ end -}}
+
+{{ if eq .chezmoi.os "darwin" -}}
+if ! command -v brew >/dev/null 2>&1; then
+  echo "Homebrew not found on macOS. Attempting install..."
+  # This might fail without sudo, but we try standard install or warn.
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || echo "Please install Homebrew manually."
+fi
+{{ end -}}
+
+if command -v brew >/dev/null 2>&1; then
+  echo "Brew found. Bundling packages..."
+  # We use the Brewfile managed by chezmoi (~/.Brewfile)
+  brew bundle --global
+else
+  echo "Warning: Homebrew not available. Skipping package installation."
+fi

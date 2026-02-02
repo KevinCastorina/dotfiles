@@ -1,0 +1,8 @@
+{
+  "terminal.integrated.defaultProfile.linux": "zsh",
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "editor.fontFamily": "'Fira Code Nerd Font', 'Fira Code', Consolas, 'Courier New', monospace",
+  "editor.fontLigatures": true,
+  "workbench.startupEditor": "newUntitledFile",
+  "files.trimTrailingWhitespace": true
+}

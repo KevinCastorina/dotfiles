@@ -1,0 +1,22 @@
+{{- /* .chezmoi.toml.tmpl */ -}}
+{{- $osid := .chezmoi.os -}}
+{{- if hasKey .chezmoi.osRelease "id" -}}
+{{-   $osid = printf "%s-%s" .chezmoi.os .chezmoi.osRelease.id -}}
+{{- end -}}
+
+{{- $is_devcontainer := or (env "REMOTE_CONTAINERS") (env "CODESPACES") (env "VSCODE_REMOTE_CONTAINERS") (eq .chezmoi.username "vscode") -}}
+
+# Determine shell config file based on OS
+{{- $shellrc_target := ".bashrc" -}}
+{{- if eq .chezmoi.os "darwin" -}}
+{{-   $shellrc_target = ".zshrc" -}}
+{{- end -}}
+
+# Check if user wants icons (Nerd Font support)
+{{- $enable_icons := or (env "DOTFILES_ICONS") "0" -}}
+
+[data]
+    osid = {{ $osid | quote }}
+    is_devcontainer = {{ $is_devcontainer }}
+    shellrc_target = {{ $shellrc_target | quote }}
+    enable_icons = {{ $enable_icons }}
