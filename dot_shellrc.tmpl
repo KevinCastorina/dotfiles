@@ -16,15 +16,21 @@ export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
 
 # Homebrew Setup
-if [ -d "/home/linuxbrew/.linuxbrew" ]; then
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-elif [ -d "$HOME/.linuxbrew" ]; then
-    eval "$($HOME/.linuxbrew/bin/brew shellenv)"
-elif [ -d "/opt/homebrew" ]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [ -x "/usr/local/bin/brew" ]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-fi
+# Define potential Homebrew paths
+BREW_PATHS=(
+    "/home/linuxbrew/.linuxbrew/bin/brew"
+    "$HOME/.linuxbrew/bin/brew"
+    "/opt/homebrew/bin/brew"
+    "/usr/local/bin/brew"
+)
+
+# Find and evaluate shellenv for the first available brew
+for brew_path in "${BREW_PATHS[@]}"; do
+    if [ -x "$brew_path" ]; then
+        eval "$("$brew_path" shellenv)"
+        break
+    fi
+done
 
 # =============================================================================
 # Editor Configuration
@@ -98,6 +104,23 @@ if [ -f "$HOME/.bun/_bun" ]; then
     {{- else }}
     . "$HOME/.bun/_bun"
     {{- end }}
+fi
+
+# OpenCode Integration
+# Ensure opencode is available.
+if command -v opencode >/dev/null 2>&1; then
+    # OpenCode found in PATH
+    :
+else
+    # If not found, check if it exists in Homebrew prefix (if Homebrew is active)
+    if command -v brew >/dev/null 2>&1; then
+        BREW_PREFIX="$(brew --prefix)"
+        if [ -x "$BREW_PREFIX/bin/opencode" ]; then
+            # Add brew bin to PATH if it wasn't already (though shellenv should have done it)
+            # This is a fallback or just a confirmation.
+            export PATH="$BREW_PREFIX/bin:$PATH"
+        fi
+    fi
 fi
 
 # =============================================================================
