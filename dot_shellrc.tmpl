@@ -139,6 +139,17 @@ SAVEHIST=10000
 setopt SHARE_HISTORY
 setopt HIST_IGNORE_DUPS
 setopt HIST_IGNORE_SPACE
+
+# Prompt Configuration (Native)
+autoload -Uz vcs_info
+precmd_vcs_info() { vcs_info }
+precmd_functions+=( precmd_vcs_info )
+setopt prompt_subst
+zstyle ':vcs_info:git:*' formats '%F{magenta}(%b)%f '
+zstyle ':vcs_info:*' enable git
+
+# Format: [directory] (branch) ➜
+PROMPT='%F{blue}%~%f ${vcs_info_msg_0_}%F{green}➜%f '
 {{- else }}
 # Bash-specific settings
 # Enable bash completions
@@ -152,6 +163,20 @@ export HISTSIZE=10000
 export HISTFILESIZE=10000
 shopt -s histappend
 shopt -s cmdhist
+
+# Prompt Configuration (Native)
+parse_git_branch() {
+     git branch 2> /dev/null | sed -n -e 's/^\* \(.*\)/(\1)/p'
+}
+
+# Colors
+RESET="\[\033[0m\]"
+GREEN="\[\033[32m\]"
+BLUE="\[\033[34m\]"
+MAGENTA="\[\033[35m\]"
+
+# Format: [directory] (branch) ➜
+PS1="${BLUE}\w${RESET} ${MAGENTA}\$(parse_git_branch) ${RESET}${GREEN}➜${RESET} "
 {{- end }}
 
 # =============================================================================
