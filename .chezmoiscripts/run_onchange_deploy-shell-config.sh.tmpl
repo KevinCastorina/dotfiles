@@ -27,6 +27,18 @@ if [ ! -f "$SOURCE_TEMPLATE" ]; then
     exit 1
 fi
 
+# Backup existing unmanaged configuration
+BACKUP_FILE="${TARGET_FILE}.local"
+if [ -f "$TARGET_FILE" ]; then
+    if grep -q "managed by chezmoi" "$TARGET_FILE"; then
+        echo "ℹ️  Existing configuration is managed by chezmoi. Overwriting..."
+    else
+        echo "⚠️  Found existing unmanaged configuration."
+        echo "   Moving $TARGET_FILE to $BACKUP_FILE..."
+        mv -f "$TARGET_FILE" "$BACKUP_FILE"
+    fi
+fi
+
 # Render the template using chezmoi's templating
 echo "Rendering template..."
 chezmoi execute-template --source-path < "$SOURCE_TEMPLATE" > "$TARGET_FILE"
