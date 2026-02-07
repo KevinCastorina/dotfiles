@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_after_health-check.sh.tmpl
+# Performs a final health check on installed tools.
+
+set -e
+set -o pipefail  # Fail if any command in a pipe fails (important for version checks)
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RESET='\033[0m'
+
+echo ""
+echo "========================================"
+echo "Final Health Check"
+echo "========================================"
+
+failed=0
+
+check_tool() {
+    local cmd=$1
+    local name=${2:-$cmd}
+
+    printf "Checking %-15s ... " "$name"
+
+    if command -v "$cmd" >/dev/null 2>&1; then
+        # Try to get version. Most modern tools support --version.
+        # We capture output and silence errors just in case, but return status matters.
+        # Due to set -o pipefail, if $cmd fails, the whole pipeline fails.
+        if version_out=$("$cmd" --version 2>&1 | head -n 1); then
+             printf "${GREEN}✅ Found${RESET} (%s)\n" "$version_out"
+        else
+             printf "${RED}❌ Failed${RESET} (Version check failed)\n"
+             failed=1
+        fi
+    else
+        printf "${RED}❌ Missing${RESET}\n"
+        failed=1
+    fi
+}
+
+# Add local bin directories to PATH for the check
+# This ensures we pick up the tools we just installed
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.fzf/bin:$HOME/.opencode/bin:$PATH"
+
+# 1. Core CLI Tools
+check_tool "rg" "ripgrep"
+check_tool "bat"
+check_tool "eza"
+check_tool "fd"
+check_tool "zoxide"
+check_tool "fzf"
+check_tool "tldr"
+
+# 2. Development Tools
+check_tool "bun"
+check_tool "opencode"
+check_tool "chezmoi"
+
+echo "========================================"
+
+if [ $failed -ne 0 ]; then
+    echo ""
+    printf "${RED}Health check failed! Some tools are missing or not working.${RESET}\n"
+    exit 1
+else
+    echo ""
+    printf "${GREEN}All systems operational! Dotfiles installed successfully.${RESET}\n"
+    exit 0
+fi

@@ -1,8 +1,15 @@
 #!/bin/bash
 
-# .chezmoiscripts/run_onchange_before_install-packages.sh.tmpl
+# .chezmoiscripts/run_onchange_install-packages.sh.tmpl
 
 set -e
+
+# Ensure brew is in PATH on macOS/Linux
+export PATH="/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.linuxbrew/bin:$PATH"
+
+echo "========================================"
+echo "Installing Packages via Homebrew"
+echo "========================================"
 
 {{ if eq .chezmoi.os "linux" -}}
 # Linux Strategy: Use Linuxbrew
@@ -40,7 +47,10 @@ fi
 if command -v brew >/dev/null 2>&1; then
   echo "Brew found. Bundling packages..."
   # We use the Brewfile managed by chezmoi (~/.Brewfile)
-  brew bundle --global
+  # Force brew bundle to run even if it thinks it's satisfied, to ensure everything is linked/installed
+  brew bundle --global --verbose
 else
   echo "Warning: Homebrew not available. Skipping package installation."
 fi
+
+echo "========================================"

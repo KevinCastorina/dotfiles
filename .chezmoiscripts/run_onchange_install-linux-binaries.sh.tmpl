@@ -15,6 +15,31 @@ echo "========================================"
 echo "Installing Linux Binaries (No-Admin)"
 echo "========================================"
 
+# Detect Architecture
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        echo "Detected architecture: x86_64"
+        RG_ARCH="x86_64-unknown-linux-musl"
+        BAT_ARCH="x86_64-unknown-linux-musl"
+        EZA_ARCH="x86_64-unknown-linux-gnu"
+        FD_ARCH="x86_64-unknown-linux-musl"
+        TLDR_ARCH="x86_64-musl"
+        ;;
+    aarch64|arm64)
+        echo "Detected architecture: aarch64"
+        RG_ARCH="aarch64-unknown-linux-gnu"
+        BAT_ARCH="aarch64-unknown-linux-musl"
+        EZA_ARCH="aarch64-unknown-linux-gnu"
+        FD_ARCH="aarch64-unknown-linux-musl"
+        TLDR_ARCH="aarch64-musl"
+        ;;
+    *)
+        echo "❌ Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
+
 # Helper function to download and extract
 install_binary() {
     local NAME=$1
@@ -29,7 +54,12 @@ install_binary() {
 
     echo "Installing $NAME..."
     TEMP_DIR=$(mktemp -d)
-    curl -fsSL "$URL" -o "$TEMP_DIR/download.tar.gz"
+    echo "Downloading from: $URL"
+    if ! curl -fsSL "$URL" -o "$TEMP_DIR/download.tar.gz"; then
+        echo "❌ Failed to download $NAME from $URL"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
 
     # Extract
     tar -xzf "$TEMP_DIR/download.tar.gz" -C "$TEMP_DIR"
@@ -45,25 +75,25 @@ install_binary() {
 # 1. ripgrep (rg)
 # https://github.com/BurntSushi/ripgrep
 RG_VERSION="14.1.0"
-RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-install_binary "ripgrep" "$RG_URL" "rg"
+RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-${RG_ARCH}.tar.gz"
+install_binary "ripgrep" "$RG_URL" "rg" "rg"
 
 # 2. bat
 # https://github.com/sharkdp/bat
 BAT_VERSION="v0.24.0"
-BAT_URL="https://github.com/sharkdp/bat/releases/download/${BAT_VERSION}/bat-${BAT_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+BAT_URL="https://github.com/sharkdp/bat/releases/download/${BAT_VERSION}/bat-${BAT_VERSION}-${BAT_ARCH}.tar.gz"
 install_binary "bat" "$BAT_URL" "bat"
 
 # 3. eza
 # https://github.com/eza-community/eza
 EZA_VERSION="v0.18.11"
-EZA_URL="https://github.com/eza-community/eza/releases/download/${EZA_VERSION}/eza_x86_64-unknown-linux-gnu.tar.gz"
+EZA_URL="https://github.com/eza-community/eza/releases/download/${EZA_VERSION}/eza_${EZA_ARCH}.tar.gz"
 install_binary "eza" "$EZA_URL" "eza"
 
 # 4. fd
 # https://github.com/sharkdp/fd
 FD_VERSION="v9.0.0"
-FD_URL="https://github.com/sharkdp/fd/releases/download/${FD_VERSION}/fd-${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+FD_URL="https://github.com/sharkdp/fd/releases/download/${FD_VERSION}/fd-${FD_VERSION}-${FD_ARCH}.tar.gz"
 install_binary "fd" "$FD_URL" "fd"
 
 # 5. zoxide
@@ -88,10 +118,17 @@ fi
 if ! command -v tldr >/dev/null 2>&1; then
     echo "Installing tldr (tealdeer)..."
     # Tealdeer provides a static binary
-    TLDR_VERSION="v1.6.1"
-    curl -fsSL "https://github.com/dbrgn/tealdeer/releases/download/${TLDR_VERSION}/tealdeer-linux-x86_64-musl" -o "$BIN_DIR/tldr"
-    chmod +x "$BIN_DIR/tldr"
-    echo "✓ tldr installed."
+    # v1.7.0+ required for aarch64 binaries
+    TLDR_VERSION="v1.7.0"
+    TLDR_URL="https://github.com/dbrgn/tealdeer/releases/download/${TLDR_VERSION}/tealdeer-linux-${TLDR_ARCH}"
+    echo "Downloading from: $TLDR_URL"
+    if curl -fsSL "$TLDR_URL" -o "$BIN_DIR/tldr"; then
+        chmod +x "$BIN_DIR/tldr"
+        echo "✓ tldr installed."
+    else
+        echo "❌ Failed to download tldr from $TLDR_URL"
+        exit 1
+    fi
 else
     echo "✓ tldr is already installed."
 fi
