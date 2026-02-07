@@ -1,7 +1,7 @@
 {{- if eq .chezmoi.os "darwin" -}}
 # homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# Install opencode
+# Install opencode via brew on macOS
 tap "anomalyco/tap"
 brew "opencode"
 {{- end }}
@@ -19,11 +19,12 @@ brew "tldr"
 
 brew "chezmoi"
 # Bun is installed via curl in run_onchange_install-bun.sh.tmpl
+# OpenCode is installed via curl on Linux in run_onchange_install-opencode.sh.tmpl
 
 {{- if eq .chezmoi.os "linux" -}}
 # Linux specific dependencies
-tap "anomalyco/tap"
-brew "opencode"
+# opencode via brew on linux failed, switched to curl script
+# brew "opencode"
 
 # Heavy Rust-based CLI tools are temporarily disabled on Linux to prevent CI hangs/timeouts
 # caused by compilation from source. Use apt or manual binaries if needed.
