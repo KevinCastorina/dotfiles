@@ -20,19 +20,4 @@ brew "tldr"
 brew "chezmoi"
 # Bun is installed via curl in run_onchange_install-bun.sh.tmpl
 # OpenCode is installed via curl on Linux in run_onchange_install-opencode.sh.tmpl
-
-{{- if eq .chezmoi.os "linux" -}}
-# Linux specific dependencies
-# opencode via brew on linux failed, switched to curl script
-# brew "opencode"
-
-# Heavy Rust-based CLI tools are installed via binary script (run_onchange_install-linux-binaries.sh.tmpl)
-# to avoid slow source compilation in CI.
-# brew "ripgrep"
-# brew "bat"
-# brew "eza"
-# brew "fzf"
-# brew "zoxide"
-# brew "fd"
-# brew "tldr"
-{{- end -}}
+# Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl
