@@ -1,0 +1,114 @@
+name: Dotfiles CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        run: shellcheck install.sh
+
+  test-install:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Install Script
+        run: ./install.sh
+        env:
+          # Avoid interactive prompts if any (though scripts seem non-interactive)
+          CI: true
+
+      - name: Verify Installation
+        run: |
+          # Add local bin to PATH
+          export PATH="$HOME/.local/bin:$PATH"
+
+          echo "Verifying chezmoi installation..."
+          if ! command -v chezmoi >/dev/null; then
+            echo "::error::chezmoi not found in PATH"
+            exit 1
+          fi
+
+          echo "Verifying Shell Config..."
+          if [ "${{ runner.os }}" == "Linux" ]; then
+             if [ ! -f "$HOME/.bashrc" ]; then
+               echo "::error::.bashrc not found"
+               exit 1
+             fi
+             # Check if managed by chezmoi
+             grep -q "managed by chezmoi" "$HOME/.bashrc" || echo "::warning::.bashrc not managed by chezmoi?"
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+             if [ ! -f "$HOME/.zshrc" ]; then
+               echo "::error::.zshrc not found"
+               exit 1
+             fi
+             grep -q "managed by chezmoi" "$HOME/.zshrc" || echo "::warning::.zshrc not managed by chezmoi?"
+          fi
+
+          echo "Verifying Homebrew..."
+          if [ "${{ runner.os }}" == "Linux" ]; then
+             # Linuxbrew might need to be sourced
+             if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+               eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+             elif [ -d "$HOME/.linuxbrew" ]; then
+               eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+             fi
+          fi
+
+          if command -v brew >/dev/null; then
+            echo "brew is available."
+            brew list
+          else
+            echo "::warning::brew not found or not in PATH."
+          fi
+
+      - name: Idempotency Check
+        run: ./install.sh
+        env:
+          CI: true
+
+  test-devcontainer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dev Container CLI
+        run: npm install -g @devcontainers/cli
+
+      - name: Build and Run Dev Container
+        run: |
+          # Start the dev container.
+          # This will run the onCreateCommand (./install.sh) inside the container.
+          devcontainer up --workspace-folder .
+        env:
+          CI: true
+
+      - name: Verify Dev Container Setup
+        run: |
+          # Check for chezmoi and shell config inside the container
+          devcontainer exec --workspace-folder . bash -c "
+            export PATH=\$HOME/.local/bin:\$PATH
+            if command -v chezmoi >/dev/null; then
+              echo 'chezmoi found';
+            else
+              echo 'chezmoi not found'; exit 1;
+            fi
+
+            if [ -f ~/.bashrc ]; then
+              echo '.bashrc found';
+            else
+              echo '.bashrc not found'; exit 1;
+            fi
+          "
