@@ -16,31 +16,22 @@ RESET='\033[0m'
 BIN_DIR="$HOME/.local/bin"
 export PATH="$BIN_DIR:$PATH"
 
-# Logging functions
+# Logging functions (using printf for POSIX compliance)
 log_info() {
-  echo -e "${BLUE}ℹ️  $1${RESET}"
+  printf "${BLUE}ℹ️  %s${RESET}\n" "$1"
 }
 
 log_success() {
-  echo -e "${GREEN}✅ $1${RESET}"
+  printf "${GREEN}✅ %s${RESET}\n" "$1"
 }
 
 log_warn() {
-  echo -e "${YELLOW}⚠️  $1${RESET}"
+  printf "${YELLOW}⚠️  %s${RESET}\n" "$1"
 }
 
 log_error() {
-  echo -e "${RED}❌ $1${RESET}"
+  printf "${RED}❌ %s${RESET}\n" "$1"
 }
-
-# Check if echo -e is supported (POSIX sh doesn't always support it, but most modern sh do)
-# If not, fall back to printf
-if [ "$(echo -e)" != "" ]; then
-  log_info() { printf "${BLUE}ℹ️  %s${RESET}\n" "$1"; }
-  log_success() { printf "${GREEN}✅ %s${RESET}\n" "$1"; }
-  log_warn() { printf "${YELLOW}⚠️  %s${RESET}\n" "$1"; }
-  log_error() { printf "${RED}❌ %s${RESET}\n" "$1"; }
-fi
 
 # 1. Install chezmoi if not present
 if ! command -v chezmoi >/dev/null 2>&1; then

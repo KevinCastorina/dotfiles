@@ -40,6 +40,7 @@ echo "Installing bun using the official installer..."
 echo ""
 
 # Install bun using the official installer
+# Explicitly using bash to avoid any shell compatibility issues with piped content
 curl -fsSL https://bun.sh/install | bash
 
 # Setup completions
@@ -54,8 +55,12 @@ fi
 if [ -x "$BUN_BIN" ]; then
     echo ""
     echo "✓ Bun installed successfully!"
+
+    # Force PATH update for the rest of this script
     export PATH="$BUN_INSTALL_DIR/bin:$PATH"
+
     echo "  Location: $BUN_BIN"
+    # Use direct binary path for version check to be safe
     echo "  Version: $($BUN_BIN --version)"
     echo ""
     echo "Bun has been added to your PATH in the shell configuration."
