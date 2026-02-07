@@ -6,10 +6,10 @@
 # Remove set -e to avoid premature exit on potential minor errors or flag issues
 # We will handle errors manually.
 
-{{- $shellrc_file := ".bashrc" -}}
-{{- if eq .chezmoi.os "darwin" -}}
-{{-   $shellrc_file = ".zshrc" -}}
-{{- end -}}
+{{ $shellrc_file := ".bashrc" }}
+{{ if eq .chezmoi.os "darwin" }}
+{{   $shellrc_file = ".zshrc" }}
+{{ end }}
 
 BUN_INSTALL_DIR="$HOME/.bun"
 BUN_BIN="$BUN_INSTALL_DIR/bin/bun"
