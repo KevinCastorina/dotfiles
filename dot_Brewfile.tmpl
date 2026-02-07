@@ -1,28 +1,37 @@
 {{- if eq .chezmoi.os "darwin" -}}
 # homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# Install opencode as a CLI tool (not a cask)
-brew "anomalyco/tap/opencode"
+# Install opencode
+tap "anomalyco/tap"
+brew "opencode"
 {{- end }}
 
-brew "ripgrep"
-# bat is installed here for macOS, but handled separately/skipped for Linux if causing issues
 {{- if eq .chezmoi.os "darwin" }}
+# macOS gets all the tools via brew (bottles usually available)
+brew "ripgrep"
 brew "bat"
-{{- end }}
 brew "eza"
 brew "fzf"
 brew "zoxide"
 brew "fd"
 brew "tldr"
+{{- end }}
+
 brew "chezmoi"
 # Bun is installed via curl in run_onchange_install-bun.sh.tmpl
 
 {{- if eq .chezmoi.os "linux" -}}
-# Linux specific dependencies if any
-# Install opencode as a CLI tool
-brew "anomalyco/tap/opencode"
-# bat installation via brew often hangs on Linux CI (compilation from source).
-# Skipping for now to ensure pipeline succeeds.
+# Linux specific dependencies
+tap "anomalyco/tap"
+brew "opencode"
+
+# Heavy Rust-based CLI tools are temporarily disabled on Linux to prevent CI hangs/timeouts
+# caused by compilation from source. Use apt or manual binaries if needed.
+# brew "ripgrep"
 # brew "bat"
+# brew "eza"
+# brew "fzf"
+# brew "zoxide"
+# brew "fd"
+# brew "tldr"
 {{- end -}}
