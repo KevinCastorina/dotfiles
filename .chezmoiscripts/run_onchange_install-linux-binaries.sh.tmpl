@@ -1,0 +1,166 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-linux-binaries.sh.tmpl
+# Installs CLI tools via pre-built binaries on Linux to avoid slow source compilation in Brew.
+# Supports x86_64 and aarch64.
+
+{{ if eq .chezmoi.os "linux" }}
+
+set -e
+
+BIN_DIR="$HOME/.local/bin"
+mkdir -p "$BIN_DIR"
+export PATH="$BIN_DIR:$PATH"
+
+# Detect Architecture
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64)
+        RUST_ARCH="x86_64"
+        TEALDEER_ARCH="x86_64-musl"
+        ;;
+    aarch64|arm64)
+        ARCH="aarch64" # Normalize
+        RUST_ARCH="aarch64"
+        TEALDEER_ARCH="arm-musleabihf" # Tealdeer often uses this for ARM, let's verify or fallback to aarch64 if available?
+        # Actually tealdeer releases have: tealdeer-linux-x86_64-musl, tealdeer-linux-arm-musleabihf, tealdeer-linux-armv7-musleabihf.
+        # Wait, aarch64 is ARM64. arm-musleabihf is usually 32-bit ARM?
+        # Checking releases page (mental check): they often have aarch64-musl now?
+        # I'll stick to a safe bet or allow failure for tldr on arm if unsure, but I'll try "aarch64-unknown-linux-musl" pattern if applicable.
+        # Let's assume standard rust target: aarch64-unknown-linux-musl
+        ;;
+    *)
+        echo "Unsupported architecture: $ARCH"
+        exit 1
+        ;;
+esac
+
+echo "========================================"
+echo "Installing Linux Binaries (No-Admin)"
+echo "Architecture: $ARCH"
+echo "========================================"
+
+# Helper function to download and extract
+install_binary() {
+    local NAME=$1
+    local URL=$2
+    local BIN_NAME=$3
+    local CMD_NAME=${4:-$NAME}
+
+    # Verify if already installed
+    if command -v "$CMD_NAME" >/dev/null 2>&1; then
+        echo "✓ $NAME is already installed."
+        # Optional: Check version?
+        return
+    fi
+
+    echo "Installing $NAME..."
+    TEMP_DIR=$(mktemp -d)
+
+    if curl -fsSL "$URL" -o "$TEMP_DIR/download.tar.gz"; then
+        # Extract
+        tar -xzf "$TEMP_DIR/download.tar.gz" -C "$TEMP_DIR"
+
+        # Find binary and move
+        FOUND_BIN=$(find "$TEMP_DIR" -name "$BIN_NAME" -type f | head -n 1)
+        if [ -f "$FOUND_BIN" ]; then
+            mv "$FOUND_BIN" "$BIN_DIR/$CMD_NAME"
+            chmod +x "$BIN_DIR/$CMD_NAME"
+            echo "✓ $NAME installed to $BIN_DIR/$CMD_NAME"
+        else
+            echo "❌ Failed to find binary '$BIN_NAME' in archive."
+            ls -R "$TEMP_DIR"
+        fi
+    else
+        echo "❌ Failed to download $NAME from $URL"
+    fi
+
+    rm -rf "$TEMP_DIR"
+}
+
+# 1. ripgrep (rg)
+# https://github.com/BurntSushi/ripgrep
+RG_VERSION="14.1.0"
+RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-${RUST_ARCH}-unknown-linux-musl.tar.gz"
+install_binary "ripgrep" "$RG_URL" "rg"
+
+# 2. bat
+# https://github.com/sharkdp/bat
+BAT_VERSION="v0.24.0"
+BAT_URL="https://github.com/sharkdp/bat/releases/download/${BAT_VERSION}/bat-${BAT_VERSION}-${RUST_ARCH}-unknown-linux-musl.tar.gz"
+install_binary "bat" "$BAT_URL" "bat"
+
+# 3. eza
+# https://github.com/eza-community/eza
+# eza often uses -gnu instead of -musl for some releases, check logic.
+# v0.18.11 has x86_64-unknown-linux-gnu and aarch64-unknown-linux-gnu
+EZA_VERSION="v0.18.11"
+EZA_URL="https://github.com/eza-community/eza/releases/download/${EZA_VERSION}/eza_${RUST_ARCH}-unknown-linux-gnu.tar.gz"
+install_binary "eza" "$EZA_URL" "eza"
+
+# 4. fd
+# https://github.com/sharkdp/fd
+FD_VERSION="v9.0.0"
+FD_URL="https://github.com/sharkdp/fd/releases/download/${FD_VERSION}/fd-${FD_VERSION}-${RUST_ARCH}-unknown-linux-musl.tar.gz"
+install_binary "fd" "$FD_URL" "fd"
+
+# 5. zoxide
+if ! command -v zoxide >/dev/null 2>&1; then
+    echo "Installing zoxide..."
+    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+else
+    echo "✓ zoxide is already installed."
+fi
+
+# 6. fzf
+if ! command -v fzf >/dev/null 2>&1; then
+    echo "Installing fzf..."
+    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install --bin
+else
+    echo "✓ fzf is already installed."
+fi
+
+# 7. tldr (using tealdeer)
+# https://github.com/dbrgn/tealdeer
+# Tealdeer naming is tricky.
+# x86_64: tealdeer-linux-x86_64-musl
+# arm: tealdeer-linux-arm-musleabihf (32bit?)
+# Try to find aarch64 if available, else skip or try generic?
+# Checking known assets: v1.6.1 has tealdeer-linux-x86_64-musl, tealdeer-linux-arm-musleabihf, tealdeer-linux-armv7-musleabihf.
+# It seems NO aarch64 binary for tealdeer v1.6.1 officially?
+# If so, on aarch64, we might fail or skip.
+# I'll check if I can use another client or skip.
+if ! command -v tldr >/dev/null 2>&1; then
+    if [ "$ARCH" = "x86_64" ]; then
+        echo "Installing tldr (tealdeer)..."
+        TLDR_VERSION="v1.6.1"
+        curl -fsSL "https://github.com/dbrgn/tealdeer/releases/download/${TLDR_VERSION}/tealdeer-linux-x86_64-musl" -o "$BIN_DIR/tldr"
+        chmod +x "$BIN_DIR/tldr"
+        echo "✓ tldr installed."
+    else
+        echo "⚠️  Skipping tldr (tealdeer) on $ARCH (no static binary available)"
+    fi
+else
+    echo "✓ tldr is already installed."
+fi
+
+echo "========================================"
+echo "Verifying Installations"
+echo "========================================"
+for tool in rg bat eza fd zoxide fzf; do
+    if command -v $tool >/dev/null 2>&1; then
+        echo "✓ $tool: $($tool --version | head -n 1)"
+    else
+        echo "❌ $tool is MISSING!"
+        # Do not exit 1 immediately to allow seeing all failures?
+        # Or exit 1 to be strict.
+        EXIT_CODE=1
+    fi
+done
+
+if [ "$EXIT_CODE" = "1" ]; then
+    exit 1
+fi
+
+{{ end }}

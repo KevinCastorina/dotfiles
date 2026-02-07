@@ -1,0 +1,157 @@
+name: Dotfiles CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        run: shellcheck install.sh
+
+  test-install:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Install Script
+        run: ./install.sh
+        env:
+          # Avoid interactive prompts if any (though scripts seem non-interactive)
+          CI: true
+
+      - name: Verify Installation
+        run: |
+          # Add local bin to PATH
+          export PATH="$HOME/.local/bin:$PATH"
+
+          echo "========================================"
+          echo "Verifying Installation Components"
+          echo "========================================"
+
+          echo "1. Chezmoi"
+          if ! command -v chezmoi >/dev/null; then
+            echo "::error::chezmoi not found in PATH"
+            exit 1
+          fi
+          chezmoi --version
+
+          echo "2. Shell Config"
+          if [ "${{ runner.os }}" == "Linux" ]; then
+             if [ ! -f "$HOME/.bashrc" ]; then
+               echo "::error::.bashrc not found"
+               exit 1
+             fi
+             grep -q "managed by chezmoi" "$HOME/.bashrc" || echo "::warning::.bashrc not managed by chezmoi?"
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+             if [ ! -f "$HOME/.zshrc" ]; then
+               echo "::error::.zshrc not found"
+               exit 1
+             fi
+             grep -q "managed by chezmoi" "$HOME/.zshrc" || echo "::warning::.zshrc not managed by chezmoi?"
+          fi
+
+          echo "3. CLI Tools (Version Check)"
+          # List of tools to verify
+          TOOLS="ripgrep bat eza fzf zoxide fd"
+          # tldr might be skipped on linux-arm, check if it exists first?
+          # But in CI (amd64) it should be there.
+          if command -v tldr >/dev/null; then
+             TOOLS="$TOOLS tldr"
+          fi
+
+          for tool in $TOOLS; do
+             # Map tool name to command if different
+             CMD="$tool"
+             if [ "$tool" == "ripgrep" ]; then CMD="rg"; fi
+
+             echo "Checking $CMD..."
+             if command -v "$CMD" >/dev/null; then
+                "$CMD" --version | head -n 1
+             else
+                echo "::error::$CMD ($tool) NOT found in PATH"
+                exit 1
+             fi
+          done
+
+          echo "4. OpenCode"
+          if command -v opencode >/dev/null; then
+             echo "opencode found."
+             # opencode --version might verify it works?
+             # Assuming it supports --version
+             opencode --version || echo "::warning::opencode --version failed"
+          else
+             echo "::error::opencode not found"
+             exit 1
+          fi
+
+          echo "5. Bun"
+          # Bun install script sets PATH but we need to source or set it manually here
+          export PATH="$HOME/.bun/bin:$PATH"
+          if command -v bun >/dev/null; then
+             bun --version
+          else
+             echo "::error::bun not found"
+             exit 1
+          fi
+
+      - name: Idempotency Check
+        run: ./install.sh
+        env:
+          CI: true
+
+  test-devcontainer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dev Container CLI
+        run: npm install -g @devcontainers/cli
+
+      - name: Build and Run Dev Container
+        run: |
+          # Start the dev container.
+          # This will run the onCreateCommand (./install.sh) inside the container.
+          devcontainer up --workspace-folder .
+        env:
+          CI: true
+
+      - name: Verify Dev Container Setup
+        run: |
+          # Check for chezmoi and shell config inside the container
+          devcontainer exec --workspace-folder . bash -c "
+            export PATH=\$HOME/.local/bin:\$PATH
+            export PATH=\$HOME/.bun/bin:\$PATH
+
+            echo 'Verifying inside Devcontainer...'
+
+            if ! command -v chezmoi >/dev/null; then echo 'chezmoi not found'; exit 1; fi
+            if [ ! -f ~/.bashrc ]; then echo '.bashrc not found'; exit 1; fi
+
+            # Verify tools
+            TOOLS='rg bat eza fzf zoxide fd'
+            for tool in \$TOOLS; do
+               if command -v \$tool >/dev/null; then
+                  echo \"\$tool: OK\"
+               else
+                  echo \"\$tool: MISSING\"
+                  exit 1
+               fi
+            done
+
+            # Verify opencode
+            if command -v opencode >/dev/null; then echo 'opencode: OK'; else echo 'opencode: MISSING'; exit 1; fi
+
+            # Verify bun
+            if command -v bun >/dev/null; then echo 'bun: OK'; else echo 'bun: MISSING'; exit 1; fi
+          "

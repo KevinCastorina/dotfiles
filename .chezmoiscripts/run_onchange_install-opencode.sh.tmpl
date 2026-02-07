@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-opencode.sh.tmpl
+# Installs opencode via curl if not present (Linux)
+
+{{ if eq .chezmoi.os "linux" }}
+
+set -e
+
+echo "========================================"
+echo "OpenCode Installation Check"
+echo "========================================"
+
+if command -v opencode >/dev/null 2>&1; then
+    echo "✓ OpenCode is already installed."
+    exit 0
+fi
+
+echo "OpenCode is not installed."
+echo "Installing via curl..."
+
+# Install opencode
+curl -fsSL https://opencode.ai/install | bash
+
+echo "✓ OpenCode installed."
+echo "========================================"
+
+{{ end }}

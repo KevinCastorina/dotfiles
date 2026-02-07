@@ -1,11 +1,13 @@
 {{- if eq .chezmoi.os "darwin" -}}
-tap "homebrew/cask-fonts"
+# homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# visual-studio-code is often useful, but user specifically asked for opencode
-# We assume opencode is available via brew as requested.
-cask "opencode"
+# Install opencode via brew on macOS
+tap "anomalyco/tap"
+brew "opencode"
 {{- end }}
 
+{{- if eq .chezmoi.os "darwin" }}
+# macOS gets all the tools via brew (bottles usually available)
 brew "ripgrep"
 brew "bat"
 brew "eza"
@@ -13,11 +15,9 @@ brew "fzf"
 brew "zoxide"
 brew "fd"
 brew "tldr"
+{{- end }}
+
 brew "chezmoi"
 # Bun is installed via curl in run_onchange_install-bun.sh.tmpl
-
-{{- if eq .chezmoi.os "linux" -}}
-# Linux specific dependencies if any
-# opencode via brew on linux
-brew "opencode"
-{{- end -}}
+# OpenCode is installed via curl on Linux in run_onchange_install-opencode.sh.tmpl
+# Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl
