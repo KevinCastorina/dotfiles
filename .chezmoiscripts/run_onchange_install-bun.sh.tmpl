@@ -3,7 +3,8 @@
 # .chezmoiscripts/run_onchange_install-bun.sh.tmpl
 # Automatically installs bun if not present
 
-set -e
+# Remove set -e to avoid premature exit on potential minor errors or flag issues
+# We will handle errors manually.
 
 {{- $shellrc_file := ".bashrc" -}}
 {{- if eq .chezmoi.os "darwin" -}}
@@ -16,6 +17,8 @@ BUN_BIN="$BUN_INSTALL_DIR/bin/bun"
 echo "========================================"
 echo "Bun Installation Check"
 echo "========================================"
+echo "DEBUG: HOME=$HOME"
+echo "DEBUG: Checking for Bun at $BUN_BIN"
 
 # Check if bun is already installed and working
 if command -v bun >/dev/null 2>&1; then
@@ -40,8 +43,14 @@ echo "Installing bun using the official installer..."
 echo ""
 
 # Install bun using the official installer
-# Explicitly using bash to avoid any shell compatibility issues with piped content
-curl -fsSL https://bun.sh/install | bash
+# Explicitly set BUN_INSTALL just in case
+export BUN_INSTALL="$BUN_INSTALL_DIR"
+# Run installer
+if curl -fsSL https://bun.sh/install | bash; then
+    echo "Installer finished."
+else
+    echo "Installer returned error code."
+fi
 
 # Setup completions
 if [ -x "$BUN_BIN" ]; then
@@ -66,7 +75,9 @@ if [ -x "$BUN_BIN" ]; then
     echo "Bun has been added to your PATH in the shell configuration."
     echo "To use bun immediately, run: source ~/{{ $shellrc_file }}"
 else
-    echo "ERROR: Bun installation failed"
+    echo "ERROR: Bun installation failed. Binary not found at $BUN_BIN"
+    echo "DEBUG: Listing $BUN_INSTALL_DIR/bin:"
+    ls -la "$BUN_INSTALL_DIR/bin" 2>/dev/null || echo "Directory not found."
     exit 1
 fi
 
