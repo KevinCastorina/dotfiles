@@ -3,7 +3,8 @@ tap "homebrew/cask-fonts"
 cask "font-fira-code-nerd-font"
 # visual-studio-code is often useful, but user specifically asked for opencode
 # We assume opencode is available via brew as requested.
-cask "opencode"
+tap "anomalyco/tap"
+cask "anomalyco/tap/opencode"
 {{- end }}
 
 brew "ripgrep"
@@ -19,5 +20,6 @@ brew "chezmoi"
 {{- if eq .chezmoi.os "linux" -}}
 # Linux specific dependencies if any
 # opencode via brew on linux
-brew "opencode"
+tap "anomalyco/tap"
+brew "anomalyco/tap/opencode"
 {{- end -}}
