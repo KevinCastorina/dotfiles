@@ -1,11 +1,8 @@
 {{- if eq .chezmoi.os "darwin" -}}
 # homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# visual-studio-code is often useful, but user specifically asked for opencode
-# We assume opencode is available via brew as requested.
-tap "anomalyco/tap"
-# The cask name seems to be opencode-desktop
-cask "anomalyco/tap/opencode-desktop"
+# Install opencode from the specific tap
+cask "anomalyco/tap/opencode"
 {{- end }}
 
 brew "ripgrep"
@@ -20,8 +17,6 @@ brew "chezmoi"
 
 {{- if eq .chezmoi.os "linux" -}}
 # Linux specific dependencies if any
-# opencode via brew on linux
-tap "anomalyco/tap"
-# Assuming the formula name is opencode on Linux (as casks are macOS only)
+# Install opencode from the specific tap
 brew "anomalyco/tap/opencode"
 {{- end -}}
