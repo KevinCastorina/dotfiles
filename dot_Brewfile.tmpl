@@ -26,13 +26,12 @@ brew "chezmoi"
 # opencode via brew on linux failed, switched to curl script
 # brew "opencode"
 
-# Heavy Rust-based CLI tools are temporarily disabled on Linux to prevent CI hangs/timeouts
-# caused by compilation from source. Use apt or manual binaries if needed.
-# brew "ripgrep"
-# brew "bat"
-# brew "eza"
-# brew "fzf"
-# brew "zoxide"
-# brew "fd"
-# brew "tldr"
+# Re-enabled Rust-based CLI tools on Linux as requested
+brew "ripgrep"
+brew "bat"
+brew "eza"
+brew "fzf"
+brew "zoxide"
+brew "fd"
+brew "tldr"
 {{- end -}}
