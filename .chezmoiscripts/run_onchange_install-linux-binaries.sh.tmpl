@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-linux-binaries.sh.tmpl
+# Installs CLI tools via pre-built binaries on Linux to avoid slow source compilation in Brew.
+
+{{ if eq .chezmoi.os "linux" }}
+
+set -e
+
+BIN_DIR="$HOME/.local/bin"
+mkdir -p "$BIN_DIR"
+export PATH="$BIN_DIR:$PATH"
+
+echo "========================================"
+echo "Installing Linux Binaries (No-Admin)"
+echo "========================================"
+
+# Helper function to download and extract
+install_binary() {
+    local NAME=$1
+    local URL=$2
+    local BIN_NAME=$3
+    local CMD_NAME=${4:-$NAME}
+
+    if command -v "$CMD_NAME" >/dev/null 2>&1; then
+        echo "✓ $NAME is already installed."
+        return
+    fi
+
+    echo "Installing $NAME..."
+    TEMP_DIR=$(mktemp -d)
+    curl -fsSL "$URL" -o "$TEMP_DIR/download.tar.gz"
+
+    # Extract
+    tar -xzf "$TEMP_DIR/download.tar.gz" -C "$TEMP_DIR"
+
+    # Find binary and move
+    find "$TEMP_DIR" -name "$BIN_NAME" -type f -exec mv {} "$BIN_DIR/$CMD_NAME" \;
+    chmod +x "$BIN_DIR/$CMD_NAME"
+
+    rm -rf "$TEMP_DIR"
+    echo "✓ $NAME installed to $BIN_DIR/$CMD_NAME"
+}
+
+# 1. ripgrep (rg)
+# https://github.com/BurntSushi/ripgrep
+RG_VERSION="14.1.0"
+RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+install_binary "ripgrep" "$RG_URL" "rg"
+
+# 2. bat
+# https://github.com/sharkdp/bat
+BAT_VERSION="v0.24.0"
+BAT_URL="https://github.com/sharkdp/bat/releases/download/${BAT_VERSION}/bat-${BAT_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+install_binary "bat" "$BAT_URL" "bat"
+
+# 3. eza
+# https://github.com/eza-community/eza
+EZA_VERSION="v0.18.11"
+EZA_URL="https://github.com/eza-community/eza/releases/download/${EZA_VERSION}/eza_x86_64-unknown-linux-gnu.tar.gz"
+install_binary "eza" "$EZA_URL" "eza"
+
+# 4. fd
+# https://github.com/sharkdp/fd
+FD_VERSION="v9.0.0"
+FD_URL="https://github.com/sharkdp/fd/releases/download/${FD_VERSION}/fd-${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+install_binary "fd" "$FD_URL" "fd"
+
+# 5. zoxide
+if ! command -v zoxide >/dev/null 2>&1; then
+    echo "Installing zoxide..."
+    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+else
+    echo "✓ zoxide is already installed."
+fi
+
+# 6. fzf
+if ! command -v fzf >/dev/null 2>&1; then
+    echo "Installing fzf..."
+    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+    ~/.fzf/install --bin
+else
+    echo "✓ fzf is already installed."
+fi
+
+# 7. tldr (using tealdeer - faster rust implementation)
+# https://github.com/dbrgn/tealdeer
+if ! command -v tldr >/dev/null 2>&1; then
+    echo "Installing tldr (tealdeer)..."
+    # Tealdeer provides a static binary
+    TLDR_VERSION="v1.6.1"
+    curl -fsSL "https://github.com/dbrgn/tealdeer/releases/download/${TLDR_VERSION}/tealdeer-linux-x86_64-musl" -o "$BIN_DIR/tldr"
+    chmod +x "$BIN_DIR/tldr"
+    echo "✓ tldr installed."
+else
+    echo "✓ tldr is already installed."
+fi
+
+echo "========================================"
+
+{{ end }}
