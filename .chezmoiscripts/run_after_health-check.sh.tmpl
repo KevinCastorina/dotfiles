@@ -44,7 +44,7 @@ check_tool() {
 
 # Add local bin directories to PATH for the check
 # This ensures we pick up the tools we just installed
-export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/.fzf/bin:$HOME/.opencode/bin:$PATH"
 
 # 1. Core CLI Tools
 check_tool "rg" "ripgrep"

@@ -76,7 +76,7 @@ install_binary() {
 # https://github.com/BurntSushi/ripgrep
 RG_VERSION="14.1.0"
 RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-${RG_ARCH}.tar.gz"
-install_binary "ripgrep" "$RG_URL" "rg"
+install_binary "ripgrep" "$RG_URL" "rg" "rg"
 
 # 2. bat
 # https://github.com/sharkdp/bat
@@ -118,7 +118,8 @@ fi
 if ! command -v tldr >/dev/null 2>&1; then
     echo "Installing tldr (tealdeer)..."
     # Tealdeer provides a static binary
-    TLDR_VERSION="v1.6.1"
+    # v1.7.0+ required for aarch64 binaries
+    TLDR_VERSION="v1.7.0"
     TLDR_URL="https://github.com/dbrgn/tealdeer/releases/download/${TLDR_VERSION}/tealdeer-linux-${TLDR_ARCH}"
     echo "Downloading from: $TLDR_URL"
     if curl -fsSL "$TLDR_URL" -o "$BIN_DIR/tldr"; then
