@@ -8,7 +8,7 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 - **Cross-platform**: Works on macOS and Linux (Debian/Ubuntu).
 - **Devcontainer Ready**: Designed to be installed automatically as containers spin up.
 - **No Admin Required**: optimized for environments without `sudo` access (corporate workstations, restricted containers).
-- **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`, `tldr`.
+- **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`.
 - **Shell**: `zsh` with `oh-my-zsh` and plugins.
 - **Editor**: little-coder configuration.
 
