@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-little-coder.sh.tmpl
+# Installs little-coder via curl if not present (Linux)
+
+{{ if eq .chezmoi.os "linux" }}
+
+set -e
+
+echo "========================================"
+echo "little-coder Installation Check"
+echo "========================================"
+
+if command -v little-coder >/dev/null 2>&1; then
+    echo "✓ little-coder is already installed."
+    exit 0
+fi
+
+echo "little-coder is not installed."
+echo "Installing via curl..."
+
+# Install little-coder
+curl -fsSL https://raw.githubusercontent.com/itayinbarr/little-coder/main/install.sh | bash
+
+echo "✓ little-coder installed."
+echo "========================================"
+
+{{ end }}

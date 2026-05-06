@@ -20,10 +20,6 @@
 # User local bin
 export PATH=$HOME/.local/bin:$PATH
 
-# Bun installation
-export BUN_INSTALL="$HOME/.bun"
-export PATH="$BUN_INSTALL/bin:$PATH"
-
 # Homebrew Setup
 # Define potential Homebrew paths
 BREW_PATHS=(
@@ -106,30 +102,11 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 {{- end }}
 
-# Bun completions
-if [ -f "$HOME/.bun/_bun" ]; then
-    {{- if eq .chezmoi.os "darwin" }}
-    fpath+="$HOME/.bun/completions"
-    {{- else }}
-    . "$HOME/.bun/_bun"
-    {{- end }}
-fi
-
-# OpenCode Integration
-# Ensure opencode is available.
-if command -v opencode >/dev/null 2>&1; then
-    # OpenCode found in PATH
+# little-coder Integration
+# Ensure little-coder is available.
+if command -v little-coder >/dev/null 2>&1; then
+    # little-coder found in PATH
     :
-else
-    # If not found, check if it exists in Homebrew prefix (if Homebrew is active)
-    if command -v brew >/dev/null 2>&1; then
-        BREW_PREFIX="$(brew --prefix)"
-        if [ -x "$BREW_PREFIX/bin/opencode" ]; then
-            # Add brew bin to PATH if it wasn't already (though shellenv should have done it)
-            # This is a fallback or just a confirmation.
-            export PATH="$BREW_PREFIX/bin:$PATH"
-        fi
-    fi
 fi
 
 # =============================================================================
