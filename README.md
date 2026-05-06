@@ -10,7 +10,7 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 - **No Admin Required**: optimized for environments without `sudo` access (corporate workstations, restricted containers).
 - **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`, `tldr`.
 - **Shell**: `zsh` with `oh-my-zsh` and plugins.
-- **Editor**: OpenCode (via brew) configuration.
+- **Editor**: little-coder configuration.
 
 ## Installation
 

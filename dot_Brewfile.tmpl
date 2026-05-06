@@ -1,9 +1,7 @@
 {{- if eq .chezmoi.os "darwin" -}}
 # homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# Install opencode via brew on macOS
-tap "anomalyco/tap"
-brew "opencode"
+# little-coder is installed via curl script
 {{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
@@ -18,6 +16,5 @@ brew "tldr"
 {{- end }}
 
 brew "chezmoi"
-# Bun is installed via curl in run_onchange_install-bun.sh.tmpl
-# OpenCode is installed via curl on Linux in run_onchange_install-opencode.sh.tmpl
+# little-coder is installed via curl script in run_onchange_install-little-coder.sh.tmpl
 # Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl
