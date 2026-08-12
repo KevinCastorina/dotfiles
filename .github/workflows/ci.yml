@@ -14,8 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Run ShellCheck
+      - name: Run ShellCheck on install.sh
         run: shellcheck install.sh
+      - name: Lint chezmoi scripts (bash -n after template strip)
+        run: |
+          for f in .chezmoiscripts/*.tmpl; do
+            out="/tmp/$(basename "$f" .tmpl).sh"
+            perl -0777 -pe 's/\{\{-?.*?-?\}\}//gs' "$f" > "$out"
+            bash -n "$out"
+            echo "OK: $f"
+          done
 
   test-install:
     strategy:
@@ -25,11 +33,6 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '26'
 
       - name: Run Install Script
         run: ./install.sh
@@ -48,20 +51,34 @@ jobs:
             exit 1
           fi
 
-          echo "Verifying Shell Config..."
+          echo "Verifying omp (Oh My Pi)..."
+          if ! command -v omp >/dev/null; then
+            echo "::error::omp not found in PATH"
+            exit 1
+          fi
+          omp --version
+
+          echo "Verifying shell configs are managed by chezmoi..."
           if [ "${{ runner.os }}" == "Linux" ]; then
-             if [ ! -f "$HOME/.bashrc" ]; then
-               echo "::error::.bashrc not found"
-               exit 1
-             fi
-             # Check if managed by chezmoi
-             grep -q "managed by chezmoi" "$HOME/.bashrc" || echo "::warning::.bashrc not managed by chezmoi?"
+            for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+              if [ ! -f "$rc" ]; then
+                echo "::error::$rc not found"
+                exit 1
+              fi
+              grep -q "managed by chezmoi" "$rc" || {
+                echo "::error::$rc not managed by chezmoi"
+                exit 1
+              }
+            done
           elif [ "${{ runner.os }}" == "macOS" ]; then
-             if [ ! -f "$HOME/.zshrc" ]; then
-               echo "::error::.zshrc not found"
-               exit 1
-             fi
-             grep -q "managed by chezmoi" "$HOME/.zshrc" || echo "::warning::.zshrc not managed by chezmoi?"
+            if [ ! -f "$HOME/.zshrc" ]; then
+              echo "::error::.zshrc not found"
+              exit 1
+            fi
+            grep -q "managed by chezmoi" "$HOME/.zshrc" || {
+              echo "::error::.zshrc not managed by chezmoi"
+              exit 1
+            }
           fi
 
           echo "Verifying Homebrew..."
@@ -80,6 +97,9 @@ jobs:
           else
             echo "::warning::brew not found or not in PATH."
           fi
+
+          echo "Verifying applied state with chezmoi verify..."
+          chezmoi verify --source "$GITHUB_WORKSPACE" --exclude=scripts
 
       - name: Idempotency Check
         run: ./install.sh
@@ -105,18 +125,24 @@ jobs:
 
       - name: Verify Dev Container Setup
         run: |
-          # Check for chezmoi and shell config inside the container
+          # Check for chezmoi, omp, and shell configs inside the container.
+          # zsh is the default shell, so .zshrc must be present and managed.
           devcontainer exec --workspace-folder . bash -c "
             export PATH=\$HOME/.local/bin:\$PATH
-            if command -v chezmoi >/dev/null; then
-              echo 'chezmoi found';
-            else
-              echo 'chezmoi not found'; exit 1;
-            fi
+            for bin in chezmoi omp; do
+              if command -v \$bin >/dev/null; then
+                echo \"\$bin found\";
+              else
+                echo \"\$bin not found\"; exit 1;
+              fi
+            done
 
-            if [ -f ~/.bashrc ]; then
-              echo '.bashrc found';
-            else
-              echo '.bashrc not found'; exit 1;
-            fi
+            for rc in ~/.bashrc ~/.zshrc; do
+              if [ -f \$rc ]; then
+                echo \"\$rc found\";
+                grep -q 'managed by chezmoi' \$rc || { echo \"\$rc not managed by chezmoi\"; exit 1; }
+              else
+                echo \"\$rc not found\"; exit 1;
+              fi
+            done
           "

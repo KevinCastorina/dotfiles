@@ -33,6 +33,28 @@ log_error() {
   printf "${RED}❌ %s${RESET}\n" "$1"
 }
 
+# 0. Check prerequisites
+for cmd in curl git; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    log_error "Missing required dependency: $cmd"
+    exit 1
+  fi
+done
+
+# Backup an existing, unmanaged shell rc file before chezmoi applies its own.
+# Files managed by chezmoi carry a "# ... managed by chezmoi" marker and are left alone.
+backup_rc() {
+  rc_path="$1"
+  if [ -f "$HOME/$rc_path" ]; then
+    if grep -q "managed by chezmoi" "$HOME/$rc_path" 2>/dev/null; then
+      return 0
+    fi
+    log_warn "Found existing unmanaged $rc_path. Moving it to $rc_path.local..."
+    mv -f "$HOME/$rc_path" "$HOME/$rc_path.local"
+  fi
+  return 0
+}
+
 # 1. Install chezmoi if not present
 if ! command -v chezmoi >/dev/null 2>&1; then
   log_info "chezmoi not found. Installing to $BIN_DIR..."
@@ -53,6 +75,8 @@ DOTFILES_DIR="$SCRIPT_DIR"
 
 if [ -f "$DOTFILES_DIR/install.sh" ]; then
   log_info "Applying dotfiles from $DOTFILES_DIR..."
+  backup_rc ".zshrc"
+  backup_rc ".bashrc"
   if chezmoi init --apply --source "$DOTFILES_DIR"; then
     log_success "Dotfiles applied successfully!"
   else

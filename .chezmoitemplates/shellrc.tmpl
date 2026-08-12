@@ -1,13 +1,13 @@
-{{- if eq .chezmoi.os "darwin" -}}
-# .zshrc for macOS (managed by chezmoi)
+{{- if eq .shell "zsh" -}}
+# .zshrc (managed by chezmoi)
 {{- else -}}
-# .bashrc for Linux (managed by chezmoi)
-{{- end -}}
+# .bashrc (managed by chezmoi)
+{{- end }}
 
 # =============================================================================
 # Load Local/Work Configuration (Pre-Dotfiles)
 # =============================================================================
-{{- if eq .chezmoi.os "darwin" }}
+{{- if eq .shell "zsh" }}
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 {{- else }}
 [ -f ~/.bashrc.local ] && source ~/.bashrc.local
@@ -78,7 +78,7 @@ fi
 # Tool Integrations
 # =============================================================================
 
-{{- if eq .chezmoi.os "darwin" }}
+{{- if eq .shell "zsh" }}
 # Zoxide for Zsh
 if command -v zoxide >/dev/null 2>&1; then
     eval "$(zoxide init zsh --cmd cd)"
@@ -102,18 +102,20 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 {{- end }}
 
-# little-coder Integration
-# Ensure little-coder is available.
-if command -v little-coder >/dev/null 2>&1; then
-    # little-coder found in PATH
-    :
+# omp (Oh My Pi) completions
+if command -v omp >/dev/null 2>&1; then
+{{- if eq .shell "zsh" }}
+    eval "$(omp completions zsh)"
+{{- else }}
+    eval "$(omp completions bash)"
+{{- end }}
 fi
 
 # =============================================================================
 # Shell-Specific Configuration
 # =============================================================================
 
-{{- if eq .chezmoi.os "darwin" }}
+{{- if eq .shell "zsh" }}
 # Zsh-specific settings
 # Enable zsh completions
 autoload -Uz compinit && compinit

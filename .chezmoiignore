@@ -1,0 +1,6 @@
+# Repo-internal files that must NOT be installed into $HOME.
+# See https://www.chezmoi.io/reference/special-files/chezmoiignore/
+install.sh
+README.md
+.github
+.devcontainer

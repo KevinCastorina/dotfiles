@@ -3,6 +3,7 @@
 # .chezmoiscripts/run_onchange_install-packages.sh.tmpl
 
 set -e
+set -o pipefail
 
 # Ensure brew is in PATH on macOS/Linux
 export PATH="/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.linuxbrew/bin:$PATH"

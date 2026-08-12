@@ -1,0 +1,3 @@
+{{- if eq .chezmoi.os "linux" -}}
+{{- template "shellrc.tmpl" (dict "shell" "bash" "chezmoi" .chezmoi) -}}
+{{- end -}}

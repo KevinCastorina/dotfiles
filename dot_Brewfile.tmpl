@@ -1,7 +1,8 @@
 {{- if eq .chezmoi.os "darwin" -}}
 # homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# little-coder is installed via curl script
+# omp (Oh My Pi) coding agent
+tap "can1357/tap"
 {{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
@@ -12,8 +13,8 @@ brew "eza"
 brew "fzf"
 brew "zoxide"
 brew "fd"
+brew "can1357/tap/omp"
 {{- end }}
 
 brew "chezmoi"
-# little-coder is installed via curl script in run_onchange_install-little-coder.sh.tmpl
 # Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl

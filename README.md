@@ -9,8 +9,8 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 - **Devcontainer Ready**: Designed to be installed automatically as containers spin up.
 - **No Admin Required**: optimized for environments without `sudo` access (corporate workstations, restricted containers).
 - **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`.
-- **Shell**: `zsh` with `oh-my-zsh` and plugins.
-- **Editor**: little-coder configuration.
+- **Shell**: `zsh` and `bash` startup files are managed directly by chezmoi (no oh-my-zsh required).
+- **Coding Agent**: `omp` (Oh My Pi) terminal coding agent.
 
 ## Installation
 
@@ -28,6 +28,9 @@ Or using the full repository URL:
 sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply https://github.com/YOUR_USERNAME/REPO_NAME.git
 ```
 
+> Any existing unmanaged `~/.bashrc` / `~/.zshrc` is moved to `.local` before
+> the managed versions are applied.
+
 ### Manual / Devcontainer (Cloned)
 
 If the repository is already cloned (e.g., inside a Devcontainer or manual clone):
@@ -40,10 +43,12 @@ cd ~/.dotfiles
 
 ## Structure
 
-- `install.sh`: Bootstrapper script.
+- `install.sh`: Bootstrapper script (installs chezmoi, applies dotfiles, backs up existing rc files).
 - `.chezmoi.toml.tmpl`: Chezmoi configuration template.
-- `.chezmoiscripts/`: Scripts to run during `chezmoi apply` (install packages, setup shell).
-- `dot_zshrc`: Zsh configuration.
+- `.chezmoiignore`: Files in the repo that are never installed into `$HOME`.
+- `.chezmoitemplates/shellrc.tmpl`: Shared shell configuration, rendered per shell.
+- `dot_zshrc.tmpl` / `dot_bashrc.tmpl`: Managed `~/.zshrc` / `~/.bashrc` (Linux installs both).
+- `.chezmoiscripts/`: Scripts to run during `chezmoi apply` (install packages, setup tools).
 - `dot_config/`: Configuration files for other tools.
 
 ## Devcontainers
@@ -60,3 +65,8 @@ Alternatively, you can add this to your `devcontainer.json`:
 ```json
 "onCreateCommand": "sh -c \"$(curl -fsLS https://raw.githubusercontent.com/YOUR_USERNAME/REPO_NAME/main/install.sh)\""
 ```
+
+## Icons
+
+`eza` file-listing icons are enabled only when the `DOTFILES_ICONS=1`
+environment variable is set (a Nerd Font is required).

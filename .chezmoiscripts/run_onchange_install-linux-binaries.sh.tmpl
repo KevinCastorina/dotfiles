@@ -6,6 +6,7 @@
 {{ if eq .chezmoi.os "linux" }}
 
 set -e
+set -o pipefail
 
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
@@ -109,6 +110,14 @@ if ! command -v fzf >/dev/null 2>&1; then
     ~/.fzf/install --bin
 else
     echo "✓ fzf is already installed."
+fi
+
+# 7. omp (Oh My Pi)
+if ! command -v omp >/dev/null 2>&1; then
+    echo "Installing omp (Oh My Pi)..."
+    curl -fsSL https://omp.sh/install | sh -s -- --binary
+else
+    echo "✓ omp is already installed."
 fi
 
 echo "========================================"
