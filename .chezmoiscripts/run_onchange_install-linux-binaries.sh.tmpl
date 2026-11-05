@@ -10,7 +10,7 @@ set -o pipefail
 
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
-export PATH="$BIN_DIR:$PATH"
+export PATH="$BIN_DIR:$HOME/.fzf/bin:$PATH"
 
 echo "========================================"
 echo "Installing Linux Binaries (No-Admin)"
@@ -54,17 +54,25 @@ install_binary() {
     echo "Installing $NAME..."
     TEMP_DIR=$(mktemp -d)
     echo "Downloading from: $URL"
-    if ! curl -fsSL "$URL" -o "$TEMP_DIR/download.tar.gz"; then
+    if ! curl -fsSL --retry 3 --retry-delay 2 "$URL" -o "$TEMP_DIR/download.tar.gz"; then
         echo "❌ Failed to download $NAME from $URL"
         rm -rf "$TEMP_DIR"
         exit 1
     fi
 
     # Extract
-    tar -xzf "$TEMP_DIR/download.tar.gz" -C "$TEMP_DIR"
+    if ! tar -xzf "$TEMP_DIR/download.tar.gz" -C "$TEMP_DIR"; then
+        echo "❌ Failed to extract $NAME"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
 
     # Find binary and move
-    find "$TEMP_DIR" -name "$BIN_NAME" -type f -exec mv {} "$BIN_DIR/$CMD_NAME" \;
+    if ! find "$TEMP_DIR" -name "$BIN_NAME" -type f -exec mv {} "$BIN_DIR/$CMD_NAME" \; || [ ! -f "$BIN_DIR/$CMD_NAME" ]; then
+        echo "❌ Failed to extract binary $BIN_NAME for $NAME"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
     chmod +x "$BIN_DIR/$CMD_NAME"
 
     rm -rf "$TEMP_DIR"
@@ -98,7 +106,7 @@ install_binary "fd" "$FD_URL" "fd"
 # 5. zoxide
 if ! command -v zoxide >/dev/null 2>&1; then
     echo "Installing zoxide..."
-    curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
+    curl -fsSL --retry 3 --retry-delay 2 https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
 else
     echo "✓ zoxide is already installed."
 fi
@@ -106,19 +114,16 @@ fi
 # 6. fzf
 if ! command -v fzf >/dev/null 2>&1; then
     echo "Installing fzf..."
-    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-    ~/.fzf/install --bin
+    if [ ! -d "$HOME/.fzf" ]; then
+        git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
+    fi
+    "$HOME/.fzf/install" --bin --no-update-rc
+    ln -sf "$HOME/.fzf/bin/fzf" "$BIN_DIR/fzf"
 else
     echo "✓ fzf is already installed."
 fi
 
-# 7. omp (Oh My Pi)
-if ! command -v omp >/dev/null 2>&1; then
-    echo "Installing omp (Oh My Pi)..."
-    curl -fsSL https://omp.sh/install | sh -s -- --binary
-else
-    echo "✓ omp is already installed."
-fi
+# Pi-Bolt is installed by run_onchange_install-pi-bolt.sh.tmpl (Linux and macOS).
 
 echo "========================================"
 

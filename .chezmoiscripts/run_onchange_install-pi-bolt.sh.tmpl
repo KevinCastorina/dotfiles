@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-pi-bolt.sh.tmpl
+# Installs Pi-Bolt (https://github.com/opensec-git/Pi-Bolt) with its official installer.
+# The installer puts the release in ~/.pi-bolt and links `pi-bolt` into ~/.local/bin.
+# PIBOLT_YES=1 makes it fully non-interactive: no prompts, no optional extensions, and
+# it never edits ~/.bashrc / ~/.zshrc (those are managed by chezmoi).
+
+{{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin") -}}
+
+set -o pipefail
+
+export PATH="$HOME/.local/bin:$PATH"
+
+echo "========================================"
+echo "Installing Pi-Bolt"
+echo "========================================"
+
+{{ if and (eq .chezmoi.os "darwin") (ne .chezmoi.arch "arm64") -}}
+echo "⚠️  Pi-Bolt only supports Apple Silicon on macOS. Skipping."
+exit 0
+{{ end -}}
+
+if command -v pi-bolt >/dev/null 2>&1; then
+    echo "✓ Pi-Bolt is already installed ($(command -v pi-bolt))."
+    exit 0
+fi
+
+INSTALLER="$(mktemp)"
+trap 'rm -f "$INSTALLER"' EXIT
+
+if ! curl -fsSL --retry 3 --retry-delay 2 https://pi-bolt.opensec.in/install.sh -o "$INSTALLER"; then
+    echo "⚠️  Could not download the Pi-Bolt installer. Skipping (re-run 'chezmoi apply' later)."
+    exit 0
+fi
+
+if PIBOLT_YES=1 sh "$INSTALLER"; then
+    echo "✓ Pi-Bolt installed."
+else
+    echo "⚠️  Pi-Bolt installation failed. Skipping (re-run 'chezmoi apply' later)."
+    echo "   Note: the installer verifies releases with OpenSSL 3 or OpenSSH >= 8.1 (ssh-keygen)."
+fi
+
+echo "========================================"
+{{ end -}}

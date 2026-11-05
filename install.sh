@@ -34,7 +34,7 @@ log_error() {
 }
 
 # 0. Check prerequisites
-for cmd in curl git; do
+for cmd in curl git tar; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     log_error "Missing required dependency: $cmd"
     exit 1
@@ -59,7 +59,7 @@ backup_rc() {
 if ! command -v chezmoi >/dev/null 2>&1; then
   log_info "chezmoi not found. Installing to $BIN_DIR..."
   mkdir -p "$BIN_DIR"
-  if sh -c "$(curl -fsLS get.chezmoi.io)" -- -b "$BIN_DIR"; then
+  if sh -c "$(curl -fsLS --retry 3 --retry-delay 2 get.chezmoi.io)" -- -b "$BIN_DIR"; then
       log_success "chezmoi installed successfully."
   else
       log_error "Failed to install chezmoi."
@@ -73,11 +73,23 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DOTFILES_DIR="$SCRIPT_DIR"
 
+if [ ! -f "$DOTFILES_DIR/install.sh" ]; then
+  if [ -f "$HOME/.dotfiles/install.sh" ]; then
+    DOTFILES_DIR="$HOME/.dotfiles"
+  fi
+fi
+
 if [ -f "$DOTFILES_DIR/install.sh" ]; then
   log_info "Applying dotfiles from $DOTFILES_DIR..."
   backup_rc ".zshrc"
   backup_rc ".bashrc"
-  if chezmoi init --apply --source "$DOTFILES_DIR"; then
+  set -- init --apply --source "$DOTFILES_DIR"
+  # Without a terminal chezmoi cannot ask about files that changed since it last wrote them
+  # and would abort, so overwrite them in CI / non-interactive runs (e.g. devcontainer setup).
+  if [ -n "${CI:-}" ] || [ ! -t 0 ]; then
+    set -- "$@" --force
+  fi
+  if chezmoi "$@"; then
     log_success "Dotfiles applied successfully!"
   else
     log_error "Failed to apply dotfiles."

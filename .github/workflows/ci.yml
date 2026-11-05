@@ -51,14 +51,14 @@ jobs:
             exit 1
           fi
 
-          echo "Verifying omp (Oh My Pi)..."
-          if ! command -v omp >/dev/null; then
-            echo "::error::omp not found in PATH"
+          echo "Verifying pi-bolt..."
+          if ! command -v pi-bolt >/dev/null; then
+            echo "::error::pi-bolt not found in PATH"
             exit 1
           fi
-          omp --version
+          pi-bolt --version
 
-          echo "Verifying shell configs are managed by chezmoi..."
+          echo "Verifying shell configs are managed by chezmoi and contain PI_OFFLINE..."
           if [ "${{ runner.os }}" == "Linux" ]; then
             for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
               if [ ! -f "$rc" ]; then
@@ -69,6 +69,10 @@ jobs:
                 echo "::error::$rc not managed by chezmoi"
                 exit 1
               }
+              grep -q "PI_OFFLINE" "$rc" || {
+                echo "::error::PI_OFFLINE not set in $rc"
+                exit 1
+              }
             done
           elif [ "${{ runner.os }}" == "macOS" ]; then
             if [ ! -f "$HOME/.zshrc" ]; then
@@ -77,6 +81,10 @@ jobs:
             fi
             grep -q "managed by chezmoi" "$HOME/.zshrc" || {
               echo "::error::.zshrc not managed by chezmoi"
+              exit 1
+            }
+            grep -q "PI_OFFLINE" "$HOME/.zshrc" || {
+              echo "::error::PI_OFFLINE not set in $HOME/.zshrc"
               exit 1
             }
           fi
@@ -125,11 +133,11 @@ jobs:
 
       - name: Verify Dev Container Setup
         run: |
-          # Check for chezmoi, omp, and shell configs inside the container.
+          # Check for chezmoi, pi-bolt, and shell configs inside the container.
           # zsh is the default shell, so .zshrc must be present and managed.
           devcontainer exec --workspace-folder . bash -c "
             export PATH=\$HOME/.local/bin:\$PATH
-            for bin in chezmoi omp; do
+            for bin in chezmoi pi-bolt; do
               if command -v \$bin >/dev/null; then
                 echo \"\$bin found\";
               else
@@ -141,6 +149,7 @@ jobs:
               if [ -f \$rc ]; then
                 echo \"\$rc found\";
                 grep -q 'managed by chezmoi' \$rc || { echo \"\$rc not managed by chezmoi\"; exit 1; }
+                grep -q 'PI_OFFLINE' \$rc || { echo \"PI_OFFLINE not set in \$rc\"; exit 1; }
               else
                 echo \"\$rc not found\"; exit 1;
               fi

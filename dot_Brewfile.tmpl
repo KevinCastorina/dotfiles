@@ -1,11 +1,7 @@
 {{- if eq .chezmoi.os "darwin" -}}
 # homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
 cask "font-fira-code-nerd-font"
-# omp (Oh My Pi) coding agent
-tap "can1357/tap"
-{{- end }}
 
-{{- if eq .chezmoi.os "darwin" }}
 # macOS gets all the tools via brew (bottles usually available)
 brew "ripgrep"
 brew "bat"
@@ -13,8 +9,8 @@ brew "eza"
 brew "fzf"
 brew "zoxide"
 brew "fd"
-brew "can1357/tap/omp"
-{{- end }}
-
-brew "chezmoi"
+{{- else -}}
 # Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl
+{{- end }}
+# Pi-Bolt is installed via its official installer in run_onchange_install-pi-bolt.sh.tmpl
+brew "chezmoi"

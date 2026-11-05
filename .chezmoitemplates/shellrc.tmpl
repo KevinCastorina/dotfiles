@@ -102,14 +102,8 @@ if command -v fzf >/dev/null 2>&1; then
 fi
 {{- end }}
 
-# omp (Oh My Pi) completions
-if command -v omp >/dev/null 2>&1; then
-{{- if eq .shell "zsh" }}
-    eval "$(omp completions zsh)"
-{{- else }}
-    eval "$(omp completions bash)"
-{{- end }}
-fi
+# Pi-Bolt: disable startup network operations (update checks, model catalog refresh)
+export PI_OFFLINE=1
 
 # =============================================================================
 # Shell-Specific Configuration

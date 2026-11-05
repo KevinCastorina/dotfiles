@@ -44,7 +44,7 @@ check_tool() {
 
 # Add local bin directories to PATH for the check
 # This ensures we pick up the tools we just installed
-export PATH="$HOME/.local/bin:$HOME/.fzf/bin:$PATH"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin:$HOME/.linuxbrew/bin:$HOME/.local/bin:$HOME/.fzf/bin:$PATH"
 
 # 1. Core CLI Tools
 check_tool "rg" "ripgrep"
@@ -55,15 +55,20 @@ check_tool "zoxide"
 check_tool "fzf"
 
 # 2. Development Tools
-check_tool "omp"
+check_tool "pi-bolt" "Pi-Bolt"
 check_tool "chezmoi"
 
 echo "========================================"
 
 if [ $failed -ne 0 ]; then
     echo ""
-    printf "${RED}Health check failed! Some tools are missing or not working.${RESET}\n"
-    exit 1
+    if [ -n "${CI:-}" ]; then
+        printf "${RED}Health check failed! Some tools are missing or not working.${RESET}\n"
+        exit 1
+    fi
+    # Outside CI a missing tool should not mark the whole dotfiles apply as failed.
+    printf "${YELLOW}Health check: some tools are missing or not working (see above). Re-run 'chezmoi apply' to retry.${RESET}\n"
+    exit 0
 else
     echo ""
     printf "${GREEN}All systems operational! Dotfiles installed successfully.${RESET}\n"

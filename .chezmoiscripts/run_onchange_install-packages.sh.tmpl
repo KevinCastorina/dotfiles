@@ -13,23 +13,8 @@ echo "Installing Packages via Homebrew"
 echo "========================================"
 
 {{ if eq .chezmoi.os "linux" -}}
-# Linux Strategy: Use Linuxbrew
-if ! command -v brew >/dev/null 2>&1; then
-  echo "Homebrew not found. Installing Linuxbrew locally..."
-  # Install to ~/.linuxbrew without sudo
-  export HOMEBREW_PREFIX="$HOME/.linuxbrew"
-  mkdir -p "$HOMEBREW_PREFIX"
-  curl -L https://github.com/Homebrew/brew/tarball/master | tar xz --strip 1 -C "$HOMEBREW_PREFIX"
-
-  # Add to path for this session
-  eval "$($HOMEBREW_PREFIX/bin/brew shellenv)"
-
-  # Ensure we have a C compiler if possible, otherwise brew might fail compiling bottles.
-  # But we hope for pre-built bottles.
-fi
-
-# Ensure brew is in PATH for future scripts (though changes here only affect this script usually, unless we write to rc files)
-# We will write to rc files in the zsh step. Here we just need it for bundling.
+# On Linux, CLI tools are installed as pre-built binaries in run_onchange_install-linux-binaries.
+# If Linuxbrew is installed, set up shellenv so brew bundle can run if available.
 if [ -d "$HOME/.linuxbrew" ]; then
     eval "$($HOME/.linuxbrew/bin/brew shellenv)"
 elif [ -d "/home/linuxbrew/.linuxbrew" ]; then
@@ -48,10 +33,10 @@ fi
 if command -v brew >/dev/null 2>&1; then
   echo "Brew found. Bundling packages..."
   # We use the Brewfile managed by chezmoi (~/.Brewfile)
-  # Force brew bundle to run even if it thinks it's satisfied, to ensure everything is linked/installed
-  brew bundle --global --verbose
+  # Run brew bundle, but do not fail hard if some optional formulas fail
+  brew bundle --global --verbose || echo "⚠️ Warning: brew bundle completed with warnings/errors."
 else
-  echo "Warning: Homebrew not available. Skipping package installation."
+  echo "Homebrew not installed or not in PATH. Skipping package installation via brew."
 fi
 
 echo "========================================"

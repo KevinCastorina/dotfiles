@@ -10,7 +10,7 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 - **No Admin Required**: optimized for environments without `sudo` access (corporate workstations, restricted containers).
 - **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`.
 - **Shell**: `zsh` and `bash` startup files are managed directly by chezmoi (no oh-my-zsh required).
-- **Coding Agent**: `omp` (Oh My Pi) terminal coding agent.
+- **Coding Agent**: [Pi-Bolt](https://github.com/opensec-git/Pi-Bolt) ahead-of-time compiled native Pi coding agent (`PI_OFFLINE=1`).
 
 ## Installation
 
