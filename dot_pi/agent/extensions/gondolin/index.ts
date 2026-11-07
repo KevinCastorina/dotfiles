@@ -30,6 +30,7 @@
  *     per repo (or per host), other ssh exec commands per host.
  *   - host_cli tool: docker/kubectl/helm/kustomize/kind/minikube/git run on the
  *     HOST (outside the VM), allowlisted by binary and confirmed per call.
+ *     Set PI_HOST_CLI_COMMANDS="*" (or PI_HOST_CLI_ALL=1) to allow any binary.
  *
  * Notes:
  *   - The VM is started on `session_start` (and lazily if a tool is used before that)
@@ -482,6 +483,10 @@ const hostCommands = (process.env.PI_HOST_CLI_COMMANDS ?? "")
   .filter(Boolean);
 if (hostCommands.length === 0) hostCommands.push(...DEFAULT_HOST_COMMANDS);
 
+/** PI_HOST_CLI_COMMANDS="*" (or PI_HOST_CLI_ALL=1) allows any binary. */
+const allowAllHostCommands =
+  hostCommands.includes("*") || process.env.PI_HOST_CLI_ALL === "1";
+
 /** First real token of a command line, skipping leading env assignments and sudo. */
 function primaryBinary(command: string): string {
   const tokens = command.trim().split(/\s+/);
@@ -666,15 +671,17 @@ export default function (pi: ExtensionAPI) {
     ...localBash,
     name: "host_cli",
     label: "Host CLI",
-    description:
-      `Run a cluster/deploy command on the HOST (outside the sandbox VM). ` +
-      `Allowed binaries: ${hostCommands.join(", ")}. Each call is confirmed. ` +
-      `Ordinary builds, tests and file edits belong in the VM tools instead.`,
+    description: allowAllHostCommands
+      ? `Run ANY command on the HOST (outside the sandbox VM). Each call is confirmed. ` +
+        `Ordinary builds, tests and file edits belong in the VM tools instead.`
+      : `Run a cluster/deploy command on the HOST (outside the sandbox VM). ` +
+        `Allowed binaries: ${hostCommands.join(", ")}. Each call is confirmed. ` +
+        `Ordinary builds, tests and file edits belong in the VM tools instead.`,
     async execute(id, params, signal, onUpdate, ctx) {
       const command = (params as { command: string }).command ?? "";
       const binary = primaryBinary(command);
 
-      if (!hostCommands.includes(binary)) {
+      if (!allowAllHostCommands && !hostCommands.includes(binary)) {
         return textResult(
           `host_cli: "${binary}" is not allowed. Allowed: ${hostCommands.join(", ")}`,
         );
