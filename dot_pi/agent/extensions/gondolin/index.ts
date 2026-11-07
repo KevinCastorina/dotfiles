@@ -28,9 +28,10 @@
  *     Without a UI (print mode) the prompt is unanswered -> deny.
  *   - SSH egress: enabled when SSH_AUTH_SOCK is set. git-over-ssh is confirmed
  *     per repo (or per host), other ssh exec commands per host.
- *   - host_cli tool: docker/kubectl/helm/kustomize/kind/minikube/git run on the
- *     HOST (outside the VM), allowlisted by binary and confirmed per call.
- *     Set PI_HOST_CLI_COMMANDS="*" (or PI_HOST_CLI_ALL=1) to allow any binary.
+ *   - host_cli tool: nothing is allowed by default. Set PI_HOST_CLI_COMMANDS
+ *     (e.g. "docker,kubectl") or PI_HOST_CLI_ALL=1 / PI_HOST_CLI_COMMANDS="*"
+ *     to open it. Commands run on the HOST, allowlisted by binary, confirmed
+ *     per call.
  *
  * Notes:
  *   - The VM is started on `session_start` (and lazily if a tool is used before that)
@@ -466,22 +467,11 @@ function createGondolinBashOps(vm: VM, localCwd: string): BashOperations {
 // Allowlisted by binary, confirmed per call, fail closed without a UI.
 // ---------------------------------------------------------------------------
 
-const DEFAULT_HOST_COMMANDS = [
-  "docker",
-  "kubectl",
-  "helm",
-  "kustomize",
-  "kind",
-  "minikube",
-  "talos",
-  "flux",
-  "git",
-];
+// No default allowlist: host_cli stays closed until you opt in.
 const hostCommands = (process.env.PI_HOST_CLI_COMMANDS ?? "")
   .split(",")
   .map((p) => p.trim())
   .filter(Boolean);
-if (hostCommands.length === 0) hostCommands.push(...DEFAULT_HOST_COMMANDS);
 
 /** PI_HOST_CLI_COMMANDS="*" (or PI_HOST_CLI_ALL=1) allows any binary. */
 const allowAllHostCommands =
@@ -674,17 +664,22 @@ export default function (pi: ExtensionAPI) {
     description: allowAllHostCommands
       ? `Run ANY command on the HOST (outside the sandbox VM). Each call is confirmed. ` +
         `Ordinary builds, tests and file edits belong in the VM tools instead.`
-      : `Run a cluster/deploy command on the HOST (outside the sandbox VM). ` +
-        `Allowed binaries: ${hostCommands.join(", ")}. Each call is confirmed. ` +
-        `Ordinary builds, tests and file edits belong in the VM tools instead.`,
+      : hostCommands.length === 0
+        ? `Run a host command outside the sandbox VM. Currently no binaries are ` +
+          `allowed (set PI_HOST_CLI_COMMANDS="docker,kubectl,..." or ` +
+          `PI_HOST_CLI_ALL=1). Each call is confirmed.`
+        : `Run a host command on the HOST (outside the sandbox VM). ` +
+          `Allowed binaries: ${hostCommands.join(", ")}. Each call is confirmed. ` +
+          `Ordinary builds, tests and file edits belong in the VM tools instead.`,
     async execute(id, params, signal, onUpdate, ctx) {
       const command = (params as { command: string }).command ?? "";
       const binary = primaryBinary(command);
 
       if (!allowAllHostCommands && !hostCommands.includes(binary)) {
-        return textResult(
-          `host_cli: "${binary}" is not allowed. Allowed: ${hostCommands.join(", ")}`,
-        );
+        const allowed = hostCommands.length
+          ? hostCommands.join(", ")
+          : "nothing (set PI_HOST_CLI_COMMANDS or PI_HOST_CLI_ALL=1)";
+        return textResult(`host_cli: "${binary}" is not allowed. Allowed: ${allowed}`);
       }
 
       if (!ctx?.hasUI) {

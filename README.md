@@ -134,13 +134,16 @@ Docker and Kubernetes CLIs must run against the host daemon and cluster, so they
 are exposed as a separate tool that bypasses the VM:
 
 ```bash
-pi-bolt --tools 'read,write,edit,bash,host_cli'   # keep the surface small
+PI_HOST_CLI_COMMANDS="docker,kubectl,helm" pi-bolt      # opt-in allowlist
+PI_HOST_CLI_ALL=1 pi-bolt                              # any binary (still confirmed)
+pi-bolt                                                # host_cli closed (default)
+pi-bolt --tools 'read,write,edit,bash,host_cli'         # keep the surface small
 ```
 
-- `host_cli` only accepts binaries from `PI_HOST_CLI_COMMANDS`
-  (default: `docker, kubectl, helm, kustomize, kind, minikube, talos, flux, git`)
-- set `PI_HOST_CLI_COMMANDS="*"` or `PI_HOST_CLI_ALL=1` to allow **any** binary —
-  the tool still confirms every call, and print mode still denies
+- **No default allowlist**: `host_cli` is closed until you opt in —
+  `PI_HOST_CLI_COMMANDS="docker,kubectl,helm"` (comma-separated binaries) or
+  `PI_HOST_CLI_ALL=1` / `PI_HOST_CLI_COMMANDS="*"` to allow any binary. Without
+  either, every call is rejected: `host_cli: "kubectl" is not allowed`
 - every call is confirmed in the TUI (`Allow` / `Deny`), and denied in print mode
 - the VM still blocks `*.aliyuncs.com`, so a `kubectl`/`helm` that fetches from a
   blocked host fails on the host too if it uses that URL
