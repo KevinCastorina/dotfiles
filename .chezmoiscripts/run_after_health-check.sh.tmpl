@@ -58,6 +58,20 @@ check_tool "fzf"
 check_tool "pi-bolt" "Pi-Bolt"
 check_tool "chezmoi"
 
+{{ if eq .chezmoi.os "linux" -}}
+# 3. Optional: Gondolin micro-VM sandbox (read/write/edit/bash inside QEMU).
+#    Not fatal: CI runs skip the install, and a missing qemu only means the
+#    sandbox extension cannot boot a VM.
+printf "Checking %-15s ... " "qemu/gondolin"
+if command -v qemu-system-x86_64 >/dev/null 2>&1; then
+    printf "${GREEN}✅ Found${RESET} (%s)\n" "$(qemu-system-x86_64 --version 2>&1 | head -n 1)"
+elif [ -n "${CI:-}" ]; then
+    printf "${YELLOW}skipped (CI)${RESET}\n"
+else
+    printf "${YELLOW}⚠️ Missing${RESET} (Gondolin sandbox unavailable)\n"
+fi
+{{ end -}}
+
 echo "========================================"
 
 if [ $failed -ne 0 ]; then

@@ -58,6 +58,24 @@ jobs:
           fi
           pi-bolt --version
 
+          echo "Verifying Gondolin sandbox extension (Linux)..."
+          if [ "${{ runner.os }}" == "Linux" ]; then
+            EXT="$HOME/.pi/agent/extensions/gondolin"
+            if [ ! -f "$EXT/index.ts" ] || [ ! -f "$EXT/package.json" ]; then
+              echo "::error::Gondolin extension files were not applied"
+              exit 1
+            fi
+            grep -q "aliyuncs.com" "$EXT/index.ts" || {
+              echo "::error::Gondolin network deny list (aliyuncs.com) not found in $EXT/index.ts"
+              exit 1
+            }
+            grep -q '"pi"' "$EXT/package.json" || {
+              echo "::error::Gondolin package.json is missing the pi.extensions manifest"
+              exit 1
+            }
+            echo "Gondolin extension applied with the default network deny list."
+          fi
+
           echo "Verifying shell configs are managed by chezmoi and contain PI_OFFLINE..."
           if [ "${{ runner.os }}" == "Linux" ]; then
             for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
