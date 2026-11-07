@@ -11,7 +11,7 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 - **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`.
 - **Shell**: `zsh` and `bash` startup files are managed directly by chezmoi (no oh-my-zsh required).
 - **Coding Agent**: [Pi-Bolt](https://github.com/opensec-git/Pi-Bolt) ahead-of-time compiled native Pi coding agent (`PI_OFFLINE=1`).
-- **Sandboxed Agent**: [Gondolin](https://github.com/earendil-works/gondolin) micro-VM extension — Pi-Bolt's `read`/`write`/`edit`/`bash` run inside a QEMU VM (Linux only, still no `sudo`).
+- **Sandboxed Agent**: [Gondolin](https://github.com/earendil-works/gondolin) micro-VM extension — Pi-Bolt's `read`/`write`/`edit`/`bash` run inside a QEMU VM (Linux only, still no `sudo`), with a gated `host_cli` tool for `docker`/`kubectl` on the host.
 
 ## Installation
 
@@ -95,6 +95,7 @@ pi-bolt                     # VM starts at session_start; footer shows "Gondolin
 pi-bolt -ne                 # no extensions at all (unsandboxed)
 pi-bolt -e ~/.pi/agent/extensions/gondolin/index.ts   # one-off sandboxed run
 pi-bolt config              # Tab -> user scope, uncheck "gondolin" to disable
+pi-bolt --tools 'read,write,edit,bash,host_cli'       # sandbox + host cluster tooling
 ```
 
 ### Network policy
@@ -109,9 +110,41 @@ without re-applying dotfiles:
 GONDOLIN_BLOCK_HOSTS="aliyuncs.com,*.aliyuncs.com,*.internal.example" pi-bolt
 ```
 
+**Ask-on-first-target** (`host/examples/confirm-bash.ts`): the first request to
+each unseen host pauses and asks in the Pi-Bolt TUI — `Allow example.com:443`,
+`Allow *.example.com:443 (all subdomains)`, or `Deny`. Decisions are memorized
+for the lifetime of the VM, so later requests to the same host (or its
+subdomains) go through silently. Disable with `GONDOLIN_CONFIRM_HOSTS=off`; in
+print mode (`-p`) there is no UI to answer, so unanswered requests are denied.
+
+**SSH egress** (`host/examples/confirm-bash.ts`): enabled only when
+`SSH_AUTH_SOCK` is set (start `ssh-agent`, add your key). git-over-ssh is
+confirmed per repo — `Allow <repo>`, `Allow all repos on github.com:22`, or
+`Deny` — with clone/fetch and push tracked separately; any other SSH exec
+command is confirmed per host. Host key verification uses
+`~/.ssh/known_hosts`, and the deny list applies to SSH too.
+
 Notes: the guest has no credentials in its environment (pi's host env is not
 forwarded) — give the VM secrets with `httpHooks`/`secrets` instead. Requests to
 bare IP addresses fail closed (the TLS bridge has no hostname to match).
+
+### host_cli (docker/kubectl on the host)
+
+Docker and Kubernetes CLIs must run against the host daemon and cluster, so they
+are exposed as a separate tool that bypasses the VM:
+
+```bash
+pi-bolt --tools 'read,write,edit,bash,host_cli'   # keep the surface small
+```
+
+- `host_cli` only accepts binaries from `PI_HOST_CLI_COMMANDS`
+  (default: `docker, kubectl, helm, kustomize, kind, minikube, talos, flux, git`)
+- every call is confirmed in the TUI (`Allow` / `Deny`), and denied in print mode
+- the VM still blocks `*.aliyuncs.com`, so a `kubectl`/`helm` that fetches from a
+  blocked host fails on the host too if it uses that URL
+
+`docker image ls` inside the VM would talk to a *guest* daemon, not the host's —
+that is why host tooling lives in `host_cli` rather than in the sandbox.
 
 ### Optional KVM acceleration
 

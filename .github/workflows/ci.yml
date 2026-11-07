@@ -73,6 +73,18 @@ jobs:
               echo "::error::Gondolin package.json is missing the pi.extensions manifest"
               exit 1
             }
+            grep -q "GONDOLIN_CONFIRM_HOSTS" "$EXT/index.ts" || {
+              echo "::error::Gondolin ask-on-first-target prompt hook missing"
+              exit 1
+            }
+            grep -q "SSH_AUTH_SOCK" "$EXT/index.ts" || {
+              echo "::error::Gondolin SSH exec policy hook missing"
+              exit 1
+            }
+            grep -q "host_cli" "$EXT/index.ts" || {
+              echo "::error::Gondolin host_cli passthrough tool missing"
+              exit 1
+            }
             echo "Gondolin extension applied with the default network deny list."
           fi
 
