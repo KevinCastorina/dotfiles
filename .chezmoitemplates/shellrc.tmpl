@@ -21,10 +21,11 @@
 export PATH=$HOME/.local/bin:$PATH
 
 # Homebrew Setup
-# Define potential Homebrew paths
+# Define potential Homebrew paths: ~/.linuxbrew (root-free, what the dotfiles
+# install into) first, then Homebrew's root-owned default prefix, then macOS.
 BREW_PATHS=(
-    "/home/linuxbrew/.linuxbrew/bin/brew"
     "$HOME/.linuxbrew/bin/brew"
+    "/home/linuxbrew/.linuxbrew/bin/brew"
     "/opt/homebrew/bin/brew"
     "/usr/local/bin/brew"
 )
@@ -32,10 +33,14 @@ BREW_PATHS=(
 # Find and evaluate shellenv for the first available brew
 for brew_path in "${BREW_PATHS[@]}"; do
     if [ -x "$brew_path" ]; then
-        eval "$("$brew_path" shellenv)"
+        eval "$("$brew_path" shellenv {{ if eq .shell "zsh" }}zsh{{ else }}bash{{ end }})"
         break
     fi
 done
+
+# Quieter, faster Homebrew
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_ENV_HINTS=1
 
 # =============================================================================
 # Editor Configuration

@@ -24,6 +24,12 @@ jobs:
             bash -n "$out"
             echo "OK: $f"
           done
+      - name: Lint the managed fish config
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fish
+          fish --no-execute dot_config/fish/config.fish
+          echo "OK: dot_config/fish/config.fish"
 
   test-install:
     strategy:
@@ -103,13 +109,28 @@ jobs:
             }
           fi
 
+          echo "Verifying the managed fish config..."
+          FISH_CONFIG="$HOME/.config/fish/config.fish"
+          if [ ! -f "$FISH_CONFIG" ]; then
+            echo "::error::$FISH_CONFIG not found"
+            exit 1
+          fi
+          grep -q "managed by chezmoi" "$FISH_CONFIG" || {
+            echo "::error::$FISH_CONFIG not managed by chezmoi"
+            exit 1
+          }
+          grep -q "PI_OFFLINE" "$FISH_CONFIG" || {
+            echo "::error::PI_OFFLINE not set in $FISH_CONFIG"
+            exit 1
+          }
+
           echo "Verifying Homebrew..."
           if [ "${{ runner.os }}" == "Linux" ]; then
-             # Linuxbrew might need to be sourced
-             if [ -d "/home/linuxbrew/.linuxbrew" ]; then
-               eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-             elif [ -d "$HOME/.linuxbrew" ]; then
+             # Prefer the root-free prefix the dotfiles install into
+             if [ -d "$HOME/.linuxbrew" ]; then
                eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+             elif [ -d "/home/linuxbrew/.linuxbrew" ]; then
+               eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
              fi
           fi
 

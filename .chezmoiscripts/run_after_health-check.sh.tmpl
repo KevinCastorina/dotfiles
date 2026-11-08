@@ -54,6 +54,15 @@ check_tool "fd"
 check_tool "zoxide"
 check_tool "fzf"
 
+# fish is only needed to use the managed ~/.config/fish/config.fish; the rest of
+# the setup works fine from bash/zsh, so a missing fish is not a failure.
+printf "Checking %-15s ... " "fish"
+if command -v fish >/dev/null 2>&1; then
+    printf "${GREEN}✅ Found${RESET} (%s)\n" "$(fish --version 2>&1)"
+else
+    printf "${YELLOW}⚠️  Missing${RESET} (optional: install 'fish' to use the managed fish config)\n"
+fi
+
 # 2. Development Tools
 check_tool "pi-bolt" "Pi-Bolt"
 check_tool "chezmoi"

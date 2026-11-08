@@ -1,7 +1,10 @@
 #!/bin/bash
 
 # .chezmoiscripts/run_onchange_install-linux-binaries.sh.tmpl
-# Installs CLI tools via pre-built binaries on Linux to avoid slow source compilation in Brew.
+# Fallback for Linux: installs CLI tools via pre-built binaries, but only those
+# that are still missing. run_onchange_install-brew-packages runs before this
+# script, so anything Homebrew managed to install is skipped here (that is why
+# the Homebrew bin directories are added to PATH below).
 
 {{ if eq .chezmoi.os "linux" }}
 
@@ -10,6 +13,15 @@ set -o pipefail
 
 BIN_DIR="$HOME/.local/bin"
 mkdir -p "$BIN_DIR"
+
+# Homebrew ran first (see run_onchange_install-brew-packages): put its bin
+# directories on PATH so that `command -v` below sees what it installed and we
+# do not download a second copy of the same tool.
+for brew_bin in "$HOME/.linuxbrew/bin" "/home/linuxbrew/.linuxbrew/bin" "/opt/homebrew/bin" "/usr/local/bin"; do
+    if [ -d "$brew_bin" ]; then
+        PATH="$brew_bin:$PATH"
+    fi
+done
 export PATH="$BIN_DIR:$HOME/.fzf/bin:$PATH"
 
 echo "========================================"

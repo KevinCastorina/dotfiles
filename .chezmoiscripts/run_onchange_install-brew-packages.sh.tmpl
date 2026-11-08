@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-brew-packages.sh.tmpl
+# Installs everything declared in the managed ~/.Brewfile with Homebrew.
+#
+# macOS: uses Homebrew and installs it first if it is missing.
+#
+# Linux: installs Homebrew into ~/.linuxbrew - deliberately *not* into
+#        /home/linuxbrew, which would need root. This is Homebrew's official
+#        "install anywhere" method (git clone + a symlink to bin/brew), and
+#        every formula in the Brewfile has a bottle, so nothing is compiled and
+#        no sudo is involved. This happens on every Linux machine the dotfiles
+#        are applied to, containers and CI included.
+#
+#        Two exceptions:
+#          - DOTFILES_INSTALL_BREW=0: never install it, only use an existing
+#            Homebrew (the pre-built binaries in ~/.local/bin fill the gaps).
+#          - running as root: Homebrew refuses to run as root, so the pre-built
+#            binaries are used instead.
+#
+# Ordering: this script sorts before run_onchange_install-linux-binaries, so
+# Homebrew gets the first shot and the binary installer only fills the gaps
+# (it skips anything that is already on PATH, see the PATH setup below).
+
+set -o pipefail
+
+# Quieter, faster, non-interactive Homebrew
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_ENV_HINTS=1
+export HOMEBREW_NO_AUTO_UPDATE=1
+
+# ~/.linuxbrew (root-free) beats /home/linuxbrew (Homebrew's default prefix)
+export PATH="$HOME/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+echo "========================================"
+echo "Installing Packages via Homebrew"
+echo "========================================"
+
+# 1. Make sure brew exists.
+if ! command -v brew >/dev/null 2>&1; then
+{{ if eq .chezmoi.os "darwin" -}}
+    echo "Homebrew not found on macOS. Attempting install..."
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+        || echo "⚠️  Homebrew install failed. Please install it manually."
+    for brew_sh in /opt/homebrew/bin/brew /usr/local/bin/brew; do
+        if [ -x "$brew_sh" ]; then
+            eval "$("$brew_sh" shellenv)"
+            break
+        fi
+    done
+{{- else }}
+    if [ "${DOTFILES_INSTALL_BREW:-1}" = "0" ]; then
+        echo "Homebrew is not installed and DOTFILES_INSTALL_BREW=0."
+        echo "Using pre-built binaries in ~/.local/bin instead."
+    elif [ "$(id -u)" -eq 0 ]; then
+        echo "Running as root - Homebrew refuses to run as root."
+        echo "Using pre-built binaries in ~/.local/bin instead"
+        echo "(run the dotfiles as a normal user to get Homebrew)."
+    else
+        echo "Homebrew not found. Installing into $HOME/.linuxbrew (no root needed)..."
+        if [ ! -d "$HOME/.linuxbrew/Homebrew/.git" ]; then
+            mkdir -p "$HOME/.linuxbrew"
+            if ! git clone --depth=1 https://github.com/Homebrew/brew "$HOME/.linuxbrew/Homebrew"; then
+                echo "⚠️  Could not clone Homebrew. Pre-built binaries are used instead."
+                rm -rf "$HOME/.linuxbrew/Homebrew"
+            fi
+        fi
+        if [ -x "$HOME/.linuxbrew/Homebrew/bin/brew" ]; then
+            mkdir -p "$HOME/.linuxbrew/bin"
+            ln -sfn ../Homebrew/bin/brew "$HOME/.linuxbrew/bin/brew"
+            eval "$("$HOME/.linuxbrew/bin/brew" shellenv)"
+            echo "✓ $("$HOME/.linuxbrew/bin/brew" --version 2>/dev/null | head -1) in $HOME/.linuxbrew"
+        fi
+    fi
+{{- end }}
+fi
+
+# 2. Install the Brewfile (~/.Brewfile is managed by chezmoi).
+if command -v brew >/dev/null 2>&1; then
+    echo "Brew: $(command -v brew)"
+    # Do not fail the whole apply if an optional formula cannot be installed.
+    brew bundle --global --verbose || echo "⚠️ Warning: brew bundle completed with warnings/errors."
+else
+    echo "Homebrew not available - skipping brew bundle."
+    echo "Missing tools are installed as pre-built binaries in ~/.local/bin."
+fi
+
+echo "========================================"

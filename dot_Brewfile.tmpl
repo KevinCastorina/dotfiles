@@ -1,22 +1,25 @@
-{{- if eq .chezmoi.os "darwin" -}}
-# homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
-cask "font-fira-code-nerd-font"
-
-# macOS gets all the tools via brew (bottles usually available)
+# CLI tools - Homebrew installs bottles for all of these on both macOS and
+# Linux, so nothing is compiled and no root is needed.
 brew "ripgrep"
 brew "bat"
 brew "eza"
 brew "fzf"
 brew "zoxide"
 brew "fd"
-{{- else -}}
-# Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl
-#
-# Exception: the Pi-Bolt permission-mode sandbox needs these on PATH and Homebrew
-# ships bottles for both (no source build). See
+
+# fish shell (the managed ~/.config/fish/config.fish needs it)
+brew "fish"
+{{ if eq .chezmoi.os "linux" }}
+# Pi-Bolt permission-mode sandbox: the OS sandbox + network bridge. See
 # .chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl.
 brew "bubblewrap"
 brew "socat"
 {{- end }}
+
 # Pi-Bolt is installed via its official installer in run_onchange_install-pi-bolt.sh.tmpl
 brew "chezmoi"
+{{ if eq .chezmoi.os "darwin" }}
+
+# homebrew/cask-fonts is deprecated, fonts are now in homebrew/cask
+cask "font-fira-code-nerd-font"
+{{- end }}

@@ -42,15 +42,19 @@ for cmd in curl git tar; do
 done
 
 # Backup an existing, unmanaged shell rc file before chezmoi applies its own.
+# The managed versions source the backup (.zshrc.local, .bashrc.local,
+# config.local.fish), so local settings survive the switch.
 # Files managed by chezmoi carry a "# ... managed by chezmoi" marker and are left alone.
 backup_rc() {
   rc_path="$1"
+  backup_path="${2:-$1.local}"
   if [ -f "$HOME/$rc_path" ]; then
     if grep -q "managed by chezmoi" "$HOME/$rc_path" 2>/dev/null; then
       return 0
     fi
-    log_warn "Found existing unmanaged $rc_path. Moving it to $rc_path.local..."
-    mv -f "$HOME/$rc_path" "$HOME/$rc_path.local"
+    log_warn "Found existing unmanaged $rc_path. Moving it to $backup_path..."
+    mkdir -p "$(dirname "$HOME/$backup_path")"
+    mv -f "$HOME/$rc_path" "$HOME/$backup_path"
   fi
   return 0
 }
@@ -83,6 +87,7 @@ if [ -f "$DOTFILES_DIR/install.sh" ]; then
   log_info "Applying dotfiles from $DOTFILES_DIR..."
   backup_rc ".zshrc"
   backup_rc ".bashrc"
+  backup_rc ".config/fish/config.fish" ".config/fish/config.local.fish"
   set -- init --apply --source "$DOTFILES_DIR"
   # Without a terminal chezmoi cannot ask about files that changed since it last wrote them
   # and would abort, so overwrite them in CI / non-interactive runs (e.g. devcontainer setup).
@@ -94,6 +99,28 @@ if [ -f "$DOTFILES_DIR/install.sh" ]; then
   else
     log_error "Failed to apply dotfiles."
     exit 1
+  fi
+
+  # Optional: make fish the login shell (DOTFILES_DEFAULT_SHELL=fish ./install.sh).
+  # chsh asks for the password on /dev/tty itself, so only do it when a terminal exists.
+  if [ "${DOTFILES_DEFAULT_SHELL:-}" = "fish" ] && ( : < /dev/tty ) 2>/dev/null; then
+    if command -v fish >/dev/null 2>&1; then
+      fish_path="$(command -v fish)"
+      if [ "$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)" = "$fish_path" ]; then
+        log_success "Login shell already is $fish_path."
+      elif grep -qx "$fish_path" /etc/shells 2>/dev/null; then
+        log_info "Setting login shell to $fish_path (may ask for your password)..."
+        if chsh -s "$fish_path"; then
+          log_success "Login shell set to fish."
+        else
+          log_warn "chsh failed; run 'chsh -s $fish_path' manually."
+        fi
+      else
+        log_warn "$fish_path is not listed in /etc/shells; add it, then run 'chsh -s $fish_path'."
+      fi
+    else
+      log_warn "fish is not installed; leaving the login shell unchanged."
+    fi
   fi
 else
   log_error "Running in non-local mode (or script moved). Please clone the repo and run ./install.sh"

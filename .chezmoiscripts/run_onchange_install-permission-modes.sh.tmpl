@@ -35,7 +35,8 @@ fi
 export PATH="/home/linuxbrew/.linuxbrew/bin:$HOME/.linuxbrew/bin:$HOME/.local/bin:$PATH"
 
 # 1. Linux sandbox dependencies: bubblewrap (the OS sandbox), socat (the
-#    network bridge) and ripgrep (violation monitoring).
+#    network bridge) and ripgrep (violation monitoring). If not here already,
+#    install them with Homebrew (both are bottles).
 {{ if eq .chezmoi.os "linux" -}}
 if command -v bwrap >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; then
     echo "✓ Sandbox deps present ($(bwrap --version 2>&1), $(socat -V 2>&1 | sed -n 2p))."
