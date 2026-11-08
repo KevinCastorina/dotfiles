@@ -58,34 +58,18 @@ jobs:
           fi
           pi-bolt --version
 
-          echo "Verifying Gondolin sandbox extension (Linux)..."
+          echo "Verifying Pi-Bolt permission modes (sandbox)..."
+          if grep -q "pi-permission-modes" "$HOME/.pi/agent/settings.json" 2>/dev/null; then
+            echo "pi-permission-modes is declared in ~/.pi/agent/settings.json."
+          else
+            echo "::warning::pi-permission-modes is not declared in settings.json (offline npm?)."
+          fi
           if [ "${{ runner.os }}" == "Linux" ]; then
-            EXT="$HOME/.pi/agent/extensions/gondolin"
-            if [ ! -f "$EXT/index.ts" ] || [ ! -f "$EXT/package.json" ]; then
-              echo "::error::Gondolin extension files were not applied"
-              exit 1
+            if command -v bwrap >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; then
+              echo "Sandbox deps present: $(bwrap --version), socat $(socat -V 2>&1 | sed -n 2p)."
+            else
+              echo "::warning::bubblewrap/socat missing - the sandboxed modes degrade to prompting only."
             fi
-            grep -q "aliyuncs.com" "$EXT/index.ts" || {
-              echo "::error::Gondolin network deny list (aliyuncs.com) not found in $EXT/index.ts"
-              exit 1
-            }
-            grep -q '"pi"' "$EXT/package.json" || {
-              echo "::error::Gondolin package.json is missing the pi.extensions manifest"
-              exit 1
-            }
-            grep -q "GONDOLIN_CONFIRM_HOSTS" "$EXT/index.ts" || {
-              echo "::error::Gondolin ask-on-first-target prompt hook missing"
-              exit 1
-            }
-            grep -q "SSH_AUTH_SOCK" "$EXT/index.ts" || {
-              echo "::error::Gondolin SSH exec policy hook missing"
-              exit 1
-            }
-            grep -q "host_cli" "$EXT/index.ts" || {
-              echo "::error::Gondolin host_cli passthrough tool missing"
-              exit 1
-            }
-            echo "Gondolin extension applied with the default network deny list."
           fi
 
           echo "Verifying shell configs are managed by chezmoi and contain PI_OFFLINE..."

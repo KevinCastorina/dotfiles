@@ -4,10 +4,3 @@ install.sh
 README.md
 .github
 .devcontainer
-
-# Gondolin ships Linux guest builds and needs qemu-system-x86_64; the extension
-# is provisioned only on Linux, so keep it out of $HOME on macOS (otherwise
-# Pi-Bolt would fail at session_start).
-{{ if eq .chezmoi.os "darwin" }}
-dot_pi/agent/extensions/gondolin
-{{ end }}

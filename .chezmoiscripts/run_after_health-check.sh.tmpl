@@ -59,16 +59,16 @@ check_tool "pi-bolt" "Pi-Bolt"
 check_tool "chezmoi"
 
 {{ if eq .chezmoi.os "linux" -}}
-# 3. Optional: Gondolin micro-VM sandbox (read/write/edit/bash inside QEMU).
-#    Not fatal: CI runs skip the install, and a missing qemu only means the
-#    sandbox extension cannot boot a VM.
-printf "Checking %-15s ... " "qemu/gondolin"
-if command -v qemu-system-x86_64 >/dev/null 2>&1; then
-    printf "${GREEN}✅ Found${RESET} (%s)\n" "$(qemu-system-x86_64 --version 2>&1 | head -n 1)"
+# 3. Optional: OS sandbox for the Pi-Bolt permission modes (bubblewrap + socat;
+#    ripgrep is already checked above). Not fatal: without them the sandboxed
+#    modes degrade to prompting only and say so in the footer.
+printf "Checking %-15s ... " "bwrap/socat"
+if command -v bwrap >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; then
+    printf "${GREEN}✅ Found${RESET} (%s, %s)\n" "$(bwrap --version 2>&1)" "$(socat -V 2>&1 | sed -n 2p)"
 elif [ -n "${CI:-}" ]; then
     printf "${YELLOW}skipped (CI)${RESET}\n"
 else
-    printf "${YELLOW}⚠️ Missing${RESET} (Gondolin sandbox unavailable)\n"
+    printf "${YELLOW}⚠️ Missing${RESET} (permission-mode sandbox falls back to prompting only)\n"
 fi
 {{ end -}}
 

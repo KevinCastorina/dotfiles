@@ -11,6 +11,12 @@ brew "zoxide"
 brew "fd"
 {{- else -}}
 # Linux CLI tools are installed via binary script in run_onchange_install-linux-binaries.sh.tmpl
+#
+# Exception: the Pi-Bolt permission-mode sandbox needs these on PATH and Homebrew
+# ships bottles for both (no source build). See
+# .chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl.
+brew "bubblewrap"
+brew "socat"
 {{- end }}
 # Pi-Bolt is installed via its official installer in run_onchange_install-pi-bolt.sh.tmpl
 brew "chezmoi"

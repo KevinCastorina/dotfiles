@@ -11,7 +11,7 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 - **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`.
 - **Shell**: `zsh` and `bash` startup files are managed directly by chezmoi (no oh-my-zsh required).
 - **Coding Agent**: [Pi-Bolt](https://github.com/opensec-git/Pi-Bolt) ahead-of-time compiled native Pi coding agent (`PI_OFFLINE=1`).
-- **Sandboxed Agent**: [Gondolin](https://github.com/earendil-works/gondolin) micro-VM extension — Pi-Bolt's `read`/`write`/`edit`/`bash` run inside a QEMU VM (Linux only, still no `sudo`), with a gated `host_cli` tool for `docker`/`kubectl` on the host.
+- **Sandboxed Agent**: [pi-permission-modes](https://github.com/wynainfo/pi-permission-modes) — switchable **Default → Plan Mode → Build → YOLO** modes for Pi-Bolt, each pairing a `bubblewrap` OS sandbox with an allow / ask / deny policy, a network allowlist and live prompts (still no `sudo`).
 
 ## Installation
 
@@ -51,7 +51,6 @@ cd ~/.dotfiles
 - `dot_zshrc.tmpl` / `dot_bashrc.tmpl`: Managed `~/.zshrc` / `~/.bashrc` (Linux installs both).
 - `.chezmoiscripts/`: Scripts to run during `chezmoi apply` (install packages, setup tools).
 - `dot_config/`: Configuration files for other tools.
-- `dot_pi/agent/extensions/gondolin/`: Gondolin sandbox extension for Pi-Bolt (`index.ts` + `package.json`), installed to `~/.pi/agent/extensions/gondolin`.
 
 ## Devcontainers
 
@@ -73,90 +72,50 @@ Alternatively, you can add this to your `devcontainer.json`:
 `eza` file-listing icons are enabled only when the `DOTFILES_ICONS=1`
 environment variable is set (a Nerd Font is required).
 
-## Pi-Bolt sandbox (Gondolin)
+## Pi-Bolt sandbox (permission modes)
 
-[Gondolin](https://github.com/earendil-works/gondolin) runs Pi-Bolt's
-`read`/`write`/`edit`/`bash` tools (and `!` commands) inside a QEMU micro-VM,
-with the directory you start `pi-bolt` in mounted read-write at `/workspace`.
+[pi-permission-modes](https://github.com/wynainfo/pi-permission-modes) is the
+sandbox for Pi-Bolt. Four switchable modes - **Default -> Plan Mode -> Build ->
+YOLO** (`alt+m`, `/perm <mode>`) - each pair an OS-level sandbox with an
+allow / ask / deny policy for every tool:
 
-Installed on Linux by `chezmoi apply`:
+| Mode | Behavior |
+|------|----------|
+| **Default** | Confirm every `bash`/`edit`/`write`; an approved in-project `bash` runs **sandboxed** (writes confined to the project) |
+| **Plan Mode** | In-project `bash` is **read-only**; the model writes a plan to `plan/` and hands it over for Accept / Decline |
+| **Build** | Reads, writes and in-project `bash` run without confirmation, sandboxed |
+| **YOLO** | No prompts, no sandbox |
 
-- files: `dot_pi/agent/extensions/gondolin/{index.ts,package.json}` → `~/.pi/agent/extensions/gondolin/`
-- deps: `.chezmoiscripts/run_onchange_install-gondolin.sh.tmpl` runs
-  `brew install node qemu` (node `>=22.19`, Linuxbrew bottles) and
-  `npm install --ignore-scripts` inside that directory
-- first VM boot caches the guest image assets in `~/.cache/gondolin` (~300 MB)
+Outside the project: out-of-project access prompts, `sudo` and friends always
+prompt (detected structurally, even inside `bash -c`), and `edit`/`write` to
+protected paths (`.git/`, `.env`, dotfiles) are hard-blocked. In-project
+`bash` runs wrapped by `bubblewrap`, with writes confined to the project and
+network traffic filtered by a domain allowlist; a request to a host outside it
+**pauses while you are asked** (allow once / for the session / forever / deny).
+`/sandbox` prints the active configuration.
 
-Nothing needs `sudo`: the Homebrew prefix and `~/.pi` are user-owned. Skipped in
-CI (`CI=1`) because QEMU is a heavy install.
+Installed on Linux and macOS by `chezmoi apply`
+(`.chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl`):
 
-```bash
-pi-bolt                     # VM starts at session_start; footer shows "Gondolin: running"
-pi-bolt -ne                 # no extensions at all (unsandboxed)
-pi-bolt -e ~/.pi/agent/extensions/gondolin/index.ts   # one-off sandboxed run
-pi-bolt config              # Tab -> user scope, uncheck "gondolin" to disable
-pi-bolt --tools 'read,write,edit,bash,host_cli'       # sandbox + host cluster tooling
-```
-
-### Network policy
-
-Every host is allowed **except** the deny list, which defaults to
-`aliyuncs.com` and `*.aliyuncs.com` (subdomains match, `notaliyuncs.com` does
-not). Requests to a blocked host are answered by the host-side mediator with
-`403` before anything leaves the machine. Change the deny list per session
-without re-applying dotfiles:
-
-```bash
-GONDOLIN_BLOCK_HOSTS="aliyuncs.com,*.aliyuncs.com,*.internal.example" pi-bolt
-```
-
-**Ask-on-first-target** (`host/examples/confirm-bash.ts`): the first request to
-each unseen host pauses and asks in the Pi-Bolt TUI — `Allow example.com:443`,
-`Allow *.example.com:443 (all subdomains)`, or `Deny`. Decisions are memorized
-for the lifetime of the VM, so later requests to the same host (or its
-subdomains) go through silently. Disable with `GONDOLIN_CONFIRM_HOSTS=off`; in
-print mode (`-p`) there is no UI to answer, so unanswered requests are denied.
-
-**SSH egress** (`host/examples/confirm-bash.ts`): enabled only when
-`SSH_AUTH_SOCK` is set (start `ssh-agent`, add your key). git-over-ssh is
-confirmed per repo — `Allow <repo>`, `Allow all repos on github.com:22`, or
-`Deny` — with clone/fetch and push tracked separately; any other SSH exec
-command is confirmed per host. Host key verification uses
-`~/.ssh/known_hosts`, and the deny list applies to SSH too.
-
-Notes: the guest has no credentials in its environment (pi's host env is not
-forwarded) — give the VM secrets with `httpHooks`/`secrets` instead. Requests to
-bare IP addresses fail closed (the TLS bridge has no hostname to match).
-
-### host_cli (docker/kubectl on the host)
-
-Docker and Kubernetes CLIs must run against the host daemon and cluster, so they
-are exposed as a separate tool that bypasses the VM:
+- `pi-bolt install npm:pi-permission-modes` - user-scope package, dependencies
+  under `~/.pi/agent/npm`
+- Linux sandbox deps: `brew install bubblewrap socat` (Homebrew bottles, so no
+  `sudo` and no root-owned prefix); `ripgrep` is already managed above. macOS
+  needs neither - it uses the built-in `sandbox-exec`
+- optional global config: `~/.pi/agent/permission-mode/permission-mode.json`,
+  written by `/perm init`; a project may add `.pi/permission-mode.json`, which
+  can only make things stricter
 
 ```bash
-PI_HOST_CLI_COMMANDS="docker,kubectl,helm" pi-bolt      # opt-in allowlist
-PI_HOST_CLI_ALL=1 pi-bolt                              # any binary (still confirmed)
-pi-bolt                                                # host_cli closed (default)
-pi-bolt --tools 'read,write,edit,bash,host_cli'         # keep the surface small
+pi-bolt                      # footer shows the mode; alt+m cycles it
+pi-bolt --perm build         # start in a mode: default | plan | build | yolo
+pi-bolt --no-sandbox         # keep the modes, drop OS sandboxing
+/perm init                   # copy the stock modes to the global config
+/net, /sandbox, /shells      # network policy, sandbox state, background shells
 ```
 
-- **No default allowlist**: `host_cli` is closed until you opt in —
-  `PI_HOST_CLI_COMMANDS="docker,kubectl,helm"` (comma-separated binaries) or
-  `PI_HOST_CLI_ALL=1` / `PI_HOST_CLI_COMMANDS="*"` to allow any binary. Without
-  either, every call is rejected: `host_cli: "kubectl" is not allowed`
-- every call is confirmed in the TUI (`Allow` / `Deny`), and denied in print mode
-- the VM still blocks `*.aliyuncs.com`, so a `kubectl`/`helm` that fetches from a
-  blocked host fails on the host too if it uses that URL
-
-`docker image ls` inside the VM would talk to a *guest* daemon, not the host's —
-that is why host tooling lives in `host_cli` rather than in the sandbox.
-
-### Optional KVM acceleration
-
-Without `/dev/kvm` access QEMU uses TCG software emulation (VM boots fine, just
-slowly: ~300 MB RSS for the qemu process, guest RAM default 1 GiB). On a host
-where you have root, add your user to the `kvm` group once:
-
-```bash
-sudo usermod -aG kvm "$USER"   # then re-login
-```
+Nothing needs `sudo`: the Homebrew prefix and `~/.pi` are user-owned. If
+`bubblewrap`/`socat` are missing, the sandboxed modes degrade to **prompting
+only** and say so in the footer (`(!) sandbox-runtime missing`) - never silently
+unprotected. The complete reference ships with the package:
+`~/.pi/agent/npm/node_modules/pi-permission-modes/docs/`.

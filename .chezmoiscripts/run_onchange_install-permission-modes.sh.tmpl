@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl
+# Provisions the Pi-Bolt sandbox: the pi-permission-modes package
+# (https://github.com/wynainfo/pi-permission-modes) plus, on Linux, the OS
+# sandbox it drives.
+#
+# No admin/root required:
+#   - bubblewrap + socat come from Homebrew (the Linuxbrew prefix is user-owned;
+#     both are bottles, nothing is compiled). macOS needs neither, it uses the
+#     built-in sandbox-exec.
+#   - the extension is a user-scope Pi-Bolt package under ~/.pi/agent/npm, so
+#     `pi-bolt install` does the npm work.
+#   - ripgrep (the third Linux dependency) is already installed above.
+#
+# Modes: Default -> Plan Mode -> Build -> YOLO (alt+m, /perm <mode>); /sandbox
+# prints the active configuration. Without bwrap/socat the sandboxed modes
+# degrade to prompting only and say so in the footer.
+
+{{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin") -}}
+
+set -o pipefail
+
+echo "========================================"
+echo "Installing Pi-Bolt permission modes"
+echo "========================================"
+
+if ! command -v brew >/dev/null 2>&1; then
+    if [ -d "/home/linuxbrew/.linuxbrew" ]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    elif [ -d "$HOME/.linuxbrew" ]; then
+        eval "$($HOME/.linuxbrew/bin/brew shellenv)"
+    fi
+fi
+export PATH="/home/linuxbrew/.linuxbrew/bin:$HOME/.linuxbrew/bin:$HOME/.local/bin:$PATH"
+
+# 1. Linux sandbox dependencies: bubblewrap (the OS sandbox), socat (the
+#    network bridge) and ripgrep (violation monitoring).
+{{ if eq .chezmoi.os "linux" -}}
+if command -v bwrap >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; then
+    echo "✓ Sandbox deps present ($(bwrap --version 2>&1), $(socat -V 2>&1 | sed -n 2p))."
+elif command -v brew >/dev/null 2>&1; then
+    echo "Installing bubblewrap + socat via Homebrew (bottles)..."
+    if brew install bubblewrap socat >/dev/null 2>&1; then
+        echo "✓ $(bwrap --version 2>&1), $(socat -V 2>&1 | sed -n 2p)"
+    else
+        echo "⚠️  'brew install bubblewrap socat' failed. The sandboxed modes will"
+        echo "    fall back to prompting only until both are on PATH."
+    fi
+else
+    echo "⚠️  Homebrew not found, so bubblewrap/socat cannot be installed without"
+    echo "    root. The sandboxed modes fall back to prompting only."
+fi
+{{ end -}}
+
+# 2. The extension itself: a user-scope Pi-Bolt package (npm).
+if ! command -v pi-bolt >/dev/null 2>&1; then
+    echo "⚠️  pi-bolt not found. Skipping the package install (re-run 'chezmoi apply' later)."
+    exit 0
+fi
+
+if pi-bolt list 2>/dev/null | grep -q "pi-permission-modes"; then
+    echo "✓ pi-permission-modes is already installed."
+else
+    echo "Installing npm:pi-permission-modes..."
+    if pi-bolt install npm:pi-permission-modes >/dev/null 2>&1; then
+        echo "✓ pi-permission-modes installed."
+    else
+        echo "⚠️  'pi-bolt install npm:pi-permission-modes' failed (no network?)."
+        echo "    Re-run 'chezmoi apply' or: pi-bolt install npm:pi-permission-modes"
+    fi
+fi
+
+echo "Modes: alt+m cycles (Default -> Plan Mode -> Build -> YOLO), /perm <mode>"
+echo "switches, /sandbox prints the active configuration."
+echo "========================================"
+
+{{ end -}}
