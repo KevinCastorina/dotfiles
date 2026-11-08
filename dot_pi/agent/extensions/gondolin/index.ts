@@ -69,6 +69,8 @@ import {
   VM,
 } from "@earendil-works/gondolin";
 
+import { Container, Spacer, Text } from "@earendil-works/pi-tui";
+
 const GUEST_WORKSPACE = "/workspace";
 
 // ---------------------------------------------------------------------------
@@ -152,10 +154,120 @@ async function ask(
   }
   ctx.ui.setStatus("gondolin", `waiting for decision: ${title}`);
   try {
-    return await ctx.ui.select(title, options);
+    // The dialog title is rendered as a wrapped Text block, so newlines and
+    // long lines stay visible. Pass the details through: without this, a long
+    // command or URL never appears anywhere the user can read it.
+    return await ctx.ui.select(question ? `${title}\n${question}` : title, options);
   } finally {
     ctx.ui.setStatus("gondolin", "running");
   }
+}
+
+// ---------------------------------------------------------------------------
+// host_cli rendering: the command must be visible in full
+// ---------------------------------------------------------------------------
+
+/** createBashTool() strips the built-in renderers, so host_cli renders itself. */
+function shellOutputOf(result: unknown): string {
+  const content = (result as { content?: Array<{ type: string; text?: string }> } | undefined)
+    ?.content;
+  return (content ?? [])
+    .filter((block) => block.type === "text")
+    .map((block) => block.text ?? "")
+    .join("\n")
+    .replace(/\r/g, "")
+    .trim();
+}
+
+function formatDuration(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const total = Math.floor(seconds);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  if (minutes < 60) return `${minutes}m ${rest}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${rest}s`;
+}
+
+const HOST_CLI_PREVIEW_LINES = 5;
+
+/** Minimal structural theme type: pi's theme object exposes fg()/bold(). */
+type RenderTheme = {
+  fg: (token: string, text: string) => string;
+  bold: (text: string) => string;
+};
+
+function hostCliRenderCall(
+  args: Record<string, unknown>,
+  theme: RenderTheme,
+  context: { lastComponent?: unknown },
+): Text {
+  const command = typeof args?.command === "string" ? args.command : null;
+  const timeout = args?.timeout;
+  const suffix =
+    typeof timeout === "number" ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
+  // Style every line separately: pi resets styling after each rendered line.
+  const body =
+    command === null
+      ? theme.fg("error", "[invalid command]")
+      : command
+        ? command
+            .split("\n")
+            .map((line) => theme.fg("toolTitle", theme.bold(line)))
+            .join("\n")
+        : theme.fg("toolOutput", "...");
+  const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0);
+  // No truncation here: the whole command is shown, wrapped at terminal width.
+  text.setText(`${theme.fg("toolTitle", theme.bold("host:"))} ${body}${suffix}`);
+  return text;
+}
+
+function hostCliRenderResult(
+  result: unknown,
+  options: { expanded?: boolean; isPartial?: boolean },
+  theme: RenderTheme,
+  context: {
+    lastComponent?: unknown;
+    expanded?: boolean;
+    isError?: boolean;
+    durationMs?: number;
+    keyHint?: (keybinding: string, description: string) => string;
+  },
+): Container {
+  const component = (context.lastComponent as Container | undefined) ?? new Container();
+  component.clear();
+
+  const output = shellOutputOf(result);
+  const expanded = options.expanded ?? context.expanded ?? false;
+  const color = context.isError ? "error" : "toolOutput";
+
+  if (output) {
+    const styled = output.split("\n").map((line) => theme.fg(color, line));
+    component.addChild(new Spacer(1));
+    if (expanded) {
+      component.addChild(new Text(styled.join("\n"), 0, 0));
+    } else {
+      // Keep the tail, like bash: the interesting part of long output.
+      const shown = styled.slice(-HOST_CLI_PREVIEW_LINES);
+      const hidden = styled.length - shown.length;
+      let text = shown.join("\n");
+      if (hidden > 0) {
+        const hint = context.keyHint
+          ? context.keyHint("app.tools.expand", "to expand")
+          : "ctrl+o to expand";
+        text +=
+          `\n${theme.fg("muted", `... (${hidden} earlier lines,`)} ${hint}${theme.fg("muted", ")")}`;
+      }
+      component.addChild(new Text(text, 0, 0));
+    }
+  }
+
+  if (!options.isPartial && context.durationMs !== undefined) {
+    component.addChild(
+      new Text(`\n${theme.fg("muted", `Took ${formatDuration(context.durationMs)}`)}`, 0, 0),
+    );
+  }
+  return component;
 }
 
 class HttpGate {
@@ -671,6 +783,12 @@ export default function (pi: ExtensionAPI) {
         : `Run a host command on the HOST (outside the sandbox VM). ` +
           `Allowed binaries: ${hostCommands.join(", ")}. Each call is confirmed. ` +
           `Ordinary builds, tests and file edits belong in the VM tools instead.`,
+    // Without renderers the generic fallback preview cuts the command at 100
+    // characters (`command="..."`), so show the full command and full output.
+    renderCall: (args, theme, context) =>
+      hostCliRenderCall(args as Record<string, unknown>, theme, context),
+    renderResult: (result, options, theme, context) =>
+      hostCliRenderResult(result, options, theme, context),
     async execute(id, params, signal, onUpdate, ctx) {
       const command = (params as { command: string }).command ?? "";
       const binary = primaryBinary(command);
