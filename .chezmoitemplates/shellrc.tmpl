@@ -110,6 +110,12 @@ fi
 # Pi-Bolt: disable startup network operations (update checks, model catalog refresh)
 export PI_OFFLINE=1
 
+# Pi-Bolt: keep configuration and state under XDG (~/.config/pi/agent) instead of
+# ~/.pi/agent. A compatibility symlink ~/.pi/agent -> ~/.config/pi/agent is left in
+# place (see .chezmoiscripts/run_once_00-migrate-pi-agent-dir.sh) so launchers that
+# do not inherit this variable still read the same files.
+export PI_CODING_AGENT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pi/agent"
+
 # =============================================================================
 # Shell-Specific Configuration
 # =============================================================================

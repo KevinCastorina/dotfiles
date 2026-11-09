@@ -1,16 +1,21 @@
 #!/bin/bash
 
-# .chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl
+# .chezmoiscripts/run_onchange_after_install-permission-modes.sh.tmpl
 # Provisions the Pi-Bolt sandbox: the pi-permission-modes package
 # (https://github.com/wynainfo/pi-permission-modes) plus, on Linux, the OS
 # sandbox it drives.
+#
+# The "_after" in the name matters: chezmoi runs plain run_onchange_* scripts in
+# alphabetical order of their target names, so "install-p*e*rmission-modes" would
+# run *before* "install-p*i*-bolt" and find no pi-bolt on a fresh machine. After
+# scripts run once every other script has finished, whatever it is called.
 #
 # No admin/root required:
 #   - bubblewrap + socat come from Homebrew (the Linuxbrew prefix is user-owned;
 #     both are bottles, nothing is compiled). macOS needs neither, it uses the
 #     built-in sandbox-exec.
-#   - the extension is a user-scope Pi-Bolt package under ~/.pi/agent/npm, so
-#     `pi-bolt install` does the npm work.
+#   - the extension is a user-scope Pi-Bolt package under
+#     ${PI_CODING_AGENT_DIR:-~/.pi/agent}/npm, so `pi-bolt install` does the npm work.
 #   - ripgrep (the third Linux dependency) is already installed above.
 #
 # Modes: Default -> Plan Mode -> Build -> YOLO (alt+m, /perm <mode>); /sandbox
@@ -34,6 +39,10 @@ if ! command -v brew >/dev/null 2>&1; then
 fi
 export PATH="/home/linuxbrew/.linuxbrew/bin:$HOME/.linuxbrew/bin:$HOME/.local/bin:$PATH"
 
+# Same config location as the managed shell rc (see .chezmoitemplates/shellrc.tmpl):
+# a fresh machine has no rc yet, so chezmoi's environment needs it too.
+export PI_CODING_AGENT_DIR="${PI_CODING_AGENT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/pi/agent}"
+
 # 1. Linux sandbox dependencies: bubblewrap (the OS sandbox), socat (the
 #    network bridge) and ripgrep (violation monitoring). If not here already,
 #    install them with Homebrew (both are bottles).
@@ -55,20 +64,28 @@ fi
 {{ end -}}
 
 # 2. The extension itself: a user-scope Pi-Bolt package (npm).
+AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 if ! command -v pi-bolt >/dev/null 2>&1; then
-    echo "⚠️  pi-bolt not found. Skipping the package install (re-run 'chezmoi apply' later)."
+    echo "⚠️  pi-bolt not found. Skipping the package install."
+    echo "    Run it directly once Pi-Bolt is there: pi-bolt install npm:pi-permission-modes"
     exit 0
 fi
 
 if pi-bolt list 2>/dev/null | grep -q "pi-permission-modes"; then
     echo "✓ pi-permission-modes is already installed."
 else
-    echo "Installing npm:pi-permission-modes..."
-    if pi-bolt install npm:pi-permission-modes >/dev/null 2>&1; then
-        echo "✓ pi-permission-modes installed."
+    # The npm output goes to a log: a registry/network failure must not look like
+    # the same silent "skipping" message as a missing pi-bolt.
+    LOG_DIR="$HOME/.cache/dotfiles"
+    LOG="$LOG_DIR/pi-permission-modes.log"
+    mkdir -p "$LOG_DIR"
+    echo "Installing npm:pi-permission-modes (log: $LOG)..."
+    if pi-bolt install npm:pi-permission-modes >"$LOG" 2>&1; then
+        echo "✓ pi-permission-modes installed (under $AGENT_DIR/npm)."
     else
-        echo "⚠️  'pi-bolt install npm:pi-permission-modes' failed (no network?)."
-        echo "    Re-run 'chezmoi apply' or: pi-bolt install npm:pi-permission-modes"
+        echo "⚠️  'pi-bolt install npm:pi-permission-modes' failed. Last lines of $LOG:"
+        tail -n 20 "$LOG" 2>/dev/null | sed 's/^/    /'
+        echo "    Retry: pi-bolt install npm:pi-permission-modes"
     fi
 fi
 

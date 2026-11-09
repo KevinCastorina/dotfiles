@@ -66,6 +66,12 @@ end
 # Disable startup network operations (update checks, model catalog refresh)
 set -gx PI_OFFLINE 1
 
+# Keep configuration and state under XDG (~/.config/pi/agent) instead of ~/.pi/agent.
+# A compatibility symlink ~/.pi/agent -> ~/.config/pi/agent is left in place by
+# .chezmoiscripts/run_once_00-migrate-pi-agent-dir.sh, so launchers that do not
+# inherit this variable still read the same files.
+set -gx PI_CODING_AGENT_DIR "$HOME/.config/pi/agent"
+
 # =============================================================================
 # Interactive Configuration
 # =============================================================================

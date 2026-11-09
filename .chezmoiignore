@@ -4,3 +4,20 @@ install.sh
 README.md
 .github
 .devcontainer
+
+# Plan files written by Plan Mode: keep them in the repo, not in $HOME.
+plan/
+
+# Pi-Bolt's agent dir is machine-local state, never managed content: settings.json
+# holds per-machine provider/model/package choices and auth.json holds API keys.
+# It is only relocated by PI_CODING_AGENT_DIR (see
+# .chezmoiscripts/run_once_00-migrate-pi-agent-dir.sh.tmpl and the README).
+.config/pi/agent/auth.json
+.config/pi/agent/oauth.json
+.config/pi/agent/npm
+.config/pi/agent/sessions
+.config/pi/agent/cache
+.config/pi/agent/fff
+.config/pi/agent/models-store.json
+.config/pi/agent/*.lock
+.config/pi/agent/permission-mode/state.json

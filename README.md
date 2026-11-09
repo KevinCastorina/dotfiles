@@ -168,14 +168,19 @@ network traffic filtered by a domain allowlist; a request to a host outside it
 `/sandbox` prints the active configuration.
 
 Installed on Linux and macOS by `chezmoi apply`
-(`.chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl`):
+(`.chezmoiscripts/run_onchange_after_install-permission-modes.sh.tmpl` - the
+`_after` prefix is what makes it run **after** `install-pi-bolt`, since plain
+`run_onchange_*` scripts run in alphabetical order of their target names and
+`install-p e rmission-modes` would otherwise sort before `install-p i -bolt`):
 
 - `pi-bolt install npm:pi-permission-modes` - user-scope package, dependencies
-  under `~/.pi/agent/npm`
+  under `$PI_CODING_AGENT_DIR/npm` (default `~/.config/pi/agent/npm`, see
+  [Pi-Bolt config location](#pi-bolt-config-location)); output goes to
+  `~/.cache/dotfiles/pi-permission-modes.log`
 - Linux sandbox deps: `brew install bubblewrap socat` (Homebrew bottles, so no
   `sudo` and no root-owned prefix); `ripgrep` is already managed above. macOS
   needs neither - it uses the built-in `sandbox-exec`
-- optional global config: `~/.pi/agent/permission-mode/permission-mode.json`,
+- optional global config: `$PI_CODING_AGENT_DIR/permission-mode/permission-mode.json`,
   written by `/perm init`; a project may add `.pi/permission-mode.json`, which
   can only make things stricter
 
@@ -188,8 +193,53 @@ pi-bolt --no-sandbox         # keep the modes, drop OS sandboxing
 ```
 
 Nothing needs `sudo`: the Homebrew prefix (`~/.linuxbrew`), `~/.local/bin` and
-`~/.pi` are user-owned. If `bubblewrap`/`socat` are missing, the sandboxed modes
-degrade to **prompting only** and say so in the footer (`(!) sandbox-runtime
-missing`) - never silently unprotected. The complete reference ships with the
-package:
-`~/.pi/agent/npm/node_modules/pi-permission-modes/docs/`.
+the Pi agent dir (`~/.config/pi/agent`) are user-owned. If `bubblewrap`/`socat`
+are missing, the sandboxed modes degrade to **prompting only** and say so in the
+footer (`(!) sandbox-runtime missing`) - never silently unprotected. The
+complete reference ships with the package:
+`~/.config/pi/agent/npm/node_modules/pi-permission-modes/docs/`.
+
+## Pi-Bolt config location
+
+Pi has no `XDG_CONFIG_HOME` support; the location of its user configuration is
+set only by `PI_CODING_AGENT_DIR`. These dotfiles point it at
+`~/.config/pi/agent` (bash, zsh and fish) and migrate an existing directory:
+
+```
+~/.config/pi/agent      config + state: settings.json, auth.json, models.json,
+                        npm/ packages, sessions/, permission-mode/
+~/.pi/agent             symlink -> ~/.config/pi/agent (compatibility)
+~/.pi-bolt              the installed release (pi-bin, pi-bolt-<os>-<arch>/)
+```
+
+The symlink is not cosmetic: pi-bolt writes into the agent dir at startup
+(`trust.json.lock`, `settings.json.lock`), so any launcher that does not inherit
+the variable (desktop app, `pi-bolt-remote-control` systemd unit, VS Code task,
+cron) would otherwise silently create a second, empty `~/.pi/agent`.
+
+`.chezmoiscripts/run_once_00-migrate-pi-agent-dir.sh.tmpl` does the move -
+`mv`, never copy-over, and it refuses to merge when both directories exist
+(it prints the two commands instead). The agent dir is deliberately **not**
+managed by chezmoi: `settings.json` is machine-specific and `auth.json` holds API
+keys (see the guards in `.chezmoiignore`). The release dir stays at `~/.pi-bolt`;
+moving it would need `PIBOLT_INSTALL` / `PIBOLT_BIN_DIR` at install time.
+Sessions stay inside the agent dir unless `PI_CODING_AGENT_SESSION_DIR` is set
+(e.g. `~/.local/state/pi/sessions`).
+
+To roll back: `rm ~/.pi/agent && mv ~/.config/pi/agent ~/.pi/agent`, then drop the
+`export PI_CODING_AGENT_DIR` lines from the managed rc files.
+
+### When an install script did not run
+
+`run_once_*` and `run_onchange_*` scripts are recorded by content hash in
+`~/.config/chezmoi/chezmoistate.boltdb`, so `chezmoi apply` does **not** retry a
+script that already ran - and these scripts report failures as warnings rather
+than aborting the apply. To force one to run again:
+
+```bash
+chezmoi state get-bucket --bucket=scriptState        # key -> {"name": "..."}
+chezmoi state delete --bucket=scriptState --key=<key> && chezmoi apply
+```
+
+Installer output is kept in `~/.cache/dotfiles/`: `pi-bolt-install.log`,
+`pi-permission-modes.log`.

@@ -5,6 +5,10 @@
 # The installer puts the release in ~/.pi-bolt and links `pi-bolt` into ~/.local/bin.
 # PIBOLT_YES=1 makes it fully non-interactive: no prompts, no optional extensions, and
 # it never edits ~/.bashrc / ~/.zshrc (those are managed by chezmoi).
+#
+# Output goes to ~/.cache/dotfiles/pi-bolt-install.log: the installer's own error
+# (unsupported CPU, no OpenSSL 3 / ssh-keygen for the signature check, blocked
+# network) is the only thing that says *why* it failed, so it must not be lost.
 
 {{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin") -}}
 
@@ -12,12 +16,29 @@ set -o pipefail
 
 export PATH="$HOME/.local/bin:$PATH"
 
+# Same config location as the managed shell rc (see .chezmoitemplates/shellrc.tmpl).
+# Set here too, so that chezmoi's own environment (a fresh install has no rc yet)
+# does not leave a second agent dir behind at the old default ~/.pi/agent.
+export PI_CODING_AGENT_DIR="${PI_CODING_AGENT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/pi/agent}"
+
+LOG_DIR="$HOME/.cache/dotfiles"
+LOG="$LOG_DIR/pi-bolt-install.log"
+mkdir -p "$LOG_DIR"
+: >"$LOG"
+
+show_log() {
+    if [ -s "$LOG" ]; then
+        echo "   Last lines of $LOG:"
+        tail -n 20 "$LOG" | sed 's/^/   /'
+    fi
+}
+
 echo "========================================"
 echo "Installing Pi-Bolt"
 echo "========================================"
 
 {{ if and (eq .chezmoi.os "darwin") (ne .chezmoi.arch "arm64") -}}
-echo "⚠️  Pi-Bolt only supports Apple Silicon on macOS. Skipping."
+echo "⚠️  Pi-Bolt only supports Apple Silicon on macOS; this Mac is {{ .chezmoi.arch }}. Not retryable."
 exit 0
 {{ end -}}
 
@@ -29,16 +50,24 @@ fi
 INSTALLER="$(mktemp)"
 trap 'rm -f "$INSTALLER"' EXIT
 
-if ! curl -fsSL --retry 3 --retry-delay 2 https://pi-bolt.opensec.in/install.sh -o "$INSTALLER"; then
-    echo "⚠️  Could not download the Pi-Bolt installer. Skipping (re-run 'chezmoi apply' later)."
+if ! curl -fsSL --retry 3 --retry-delay 2 https://pi-bolt.opensec.in/install.sh -o "$INSTALLER" 2>>"$LOG"; then
+    echo "⚠️  Could not download the Pi-Bolt installer."
+    show_log
+    echo "   Retry: curl -fsSL https://pi-bolt.opensec.in/install.sh | PIBOLT_YES=1 sh"
     exit 0
 fi
 
-if PIBOLT_YES=1 sh "$INSTALLER"; then
+if PIBOLT_YES=1 sh "$INSTALLER" >>"$LOG" 2>&1; then
     echo "✓ Pi-Bolt installed."
 else
-    echo "⚠️  Pi-Bolt installation failed. Skipping (re-run 'chezmoi apply' later)."
+    echo "⚠️  Pi-Bolt installation failed."
+    show_log
+    echo "   Retry it directly: curl -fsSL https://pi-bolt.opensec.in/install.sh | PIBOLT_YES=1 sh"
     echo "   Note: the installer verifies releases with OpenSSL 3 or OpenSSH >= 8.1 (ssh-keygen)."
+    echo "   Re-running 'chezmoi apply' will NOT retry this: run_onchange records the script's"
+    echo "   hash once it has run. To force it:"
+    echo "     chezmoi state get-bucket --bucket=scriptState   # find the key for install-pi-bolt.sh"
+    echo "     chezmoi state delete --bucket=scriptState --key=<that key> && chezmoi apply"
 fi
 
 echo "========================================"

@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# .chezmoiscripts/run_once_00-migrate-pi-agent-dir.sh.tmpl
+# Moves Pi-Bolt's agent directory (~/.pi/agent) to ${PI_CODING_AGENT_DIR}
+# (default ~/.config/pi/agent) and leaves a compatibility symlink behind.
+#
+# Pi has no XDG support: the location is set only by PI_CODING_AGENT_DIR (see
+# ~/.pi-bolt/pi-bolt-linux-x64/docs/configuration.md). The symlink matters
+# because pi-bolt writes into the agent directory at startup (trust.json.lock,
+# settings.json.lock): a launcher that does not inherit the variable (desktop
+# app, pi-bolt-remote-control systemd unit, VS Code task, cron) would otherwise
+# create a second, empty ~/.pi/agent and the settings would look lost.
+#
+# The "00-" prefix keeps it ahead of the install scripts by target name, but the
+# script is written to be correct in any order (and a second time): it never
+# copies over an existing directory and never merges automatically.
+
+set -o pipefail
+
+old="$HOME/.pi/agent"
+new="${PI_CODING_AGENT_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/pi/agent}"
+
+if [ -L "$old" ]; then
+    echo "✓ ~/.pi/agent is already a symlink (-> $(readlink "$old"))."
+    exit 0
+fi
+
+if [ ! -e "$old" ]; then
+    echo "✓ Nothing to migrate (no ~/.pi/agent yet)."
+    exit 0
+fi
+
+if [ -e "$new" ]; then
+    echo "⚠️  Both $old and $new exist; not merging automatically."
+    echo "    Merge by hand, then:"
+    echo "      mv \"$old\" \"$old.bak\" && ln -s \"$new\" \"$old\""
+    exit 0
+fi
+
+mkdir -p "$(dirname "$new")"
+if mv "$old" "$new" && ln -s "$new" "$old"; then
+    echo "✓ Moved the Pi-Bolt agent dir: $old -> $new (symlink left in place)."
+else
+    echo "⚠️  Could not move $old to $new; left untouched."
+fi
