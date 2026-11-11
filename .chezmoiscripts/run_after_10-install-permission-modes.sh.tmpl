@@ -1,14 +1,18 @@
 #!/bin/bash
 
-# .chezmoiscripts/run_onchange_after_install-permission-modes.sh.tmpl
+# .chezmoiscripts/run_after_10-install-permission-modes.sh.tmpl
 # Provisions the Pi-Bolt sandbox: the pi-permission-modes package
 # (https://github.com/wynainfo/pi-permission-modes) plus, on Linux, the OS
 # sandbox it drives.
 #
-# The "_after" in the name matters: chezmoi runs plain run_onchange_* scripts in
-# alphabetical order of their target names, so "install-p*e*rmission-modes" would
-# run *before* "install-p*i*-bolt" and find no pi-bolt on a fresh machine. After
-# scripts run once every other script has finished, whatever it is called.
+# The "_after" in the name matters: chezmoi runs run_after_* scripts only once
+# every run_before_* script and every target file is done, so pi-bolt is already
+# installed here ("10/20/30-install-*" all ran before the files, this one after).
+#
+# Runs on EVERY 'chezmoi apply' (run_after_*, not run_onchange_after_*), so a
+# package or dependency that failed to install is retried. The "already there?"
+# checks below are plain filesystem tests, so a complete machine costs nothing.
+# Set DOTFILES_SKIP_INSTALL=1 to skip it (and the other install scripts).
 #
 # No admin/root required:
 #   - bubblewrap + socat come from Homebrew (the Linuxbrew prefix is user-owned;
@@ -25,6 +29,11 @@
 {{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin") -}}
 
 set -o pipefail
+
+if [ "${DOTFILES_SKIP_INSTALL:-0}" = "1" ]; then
+    echo "Skipping the permission-mode install (DOTFILES_SKIP_INSTALL=1)."
+    exit 0
+fi
 
 echo "========================================"
 echo "Installing Pi-Bolt permission modes"
@@ -71,8 +80,13 @@ if ! command -v pi-bolt >/dev/null 2>&1; then
     exit 0
 fi
 
-if pi-bolt list 2>/dev/null | grep -q "pi-permission-modes"; then
-    echo "✓ pi-permission-modes is already installed."
+# "Already installed" = the package is unpacked AND declared in settings.json
+# (a directory alone can happen after an interrupted install, and pi only loads
+# what settings.json declares). Filesystem checks instead of `pi-bolt list` so
+# this stays cheap now that it runs on every apply.
+if [ -d "$AGENT_DIR/npm/node_modules/pi-permission-modes" ] \
+    && grep -q "pi-permission-modes" "$AGENT_DIR/settings.json" 2>/dev/null; then
+    echo "✓ pi-permission-modes is installed and declared."
 else
     # The npm output goes to a log: a registry/network failure must not look like
     # the same silent "skipping" message as a missing pi-bolt.

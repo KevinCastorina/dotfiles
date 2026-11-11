@@ -47,7 +47,7 @@ cd ~/.dotfiles
 
 ## Structure
 
-- `install.sh`: Bootstrapper script (installs chezmoi, applies dotfiles, backs up existing rc files).
+- `install.sh`: Bootstrapper script (installs chezmoi, applies dotfiles, backs up existing rc files). Safe to re-run.
 - `.chezmoi.toml.tmpl`: Chezmoi configuration template.
 - `.chezmoiignore`: Files in the repo that are never installed into `$HOME`.
 - `.chezmoitemplates/shellrc.tmpl`: Shared shell configuration, rendered per shell.
@@ -56,10 +56,47 @@ cd ~/.dotfiles
 - `.chezmoiscripts/`: Scripts to run during `chezmoi apply` (install packages, setup tools).
 - `dot_config/`: Configuration files for other tools.
 
+## Re-running — installing what is missing
+
+`./install.sh` and `chezmoi apply` are meant to be run as often as you like: each
+installer script starts by checking whether the tool is already there
+(`command -v`, `brew bundle`, the package directory), so a second run does nothing
+but fetch what is still missing. A script that failed once (bad network, dead
+download, formula error, unsupported CPU) prints the reason, does not abort the
+apply, and is retried on the next run - nothing has to be deleted or reset first.
+
+```bash
+./install.sh                          # apply + install whatever is missing
+./install.sh --config-only            # apply only, skip every package install
+DOTFILES_SKIP_INSTALL=1 chezmoi apply # the same switch without install.sh
+```
+
+The install order is fixed by the file names (chezmoi runs `run_*_before_*` before
+the target files and `run_*_after_*` after them, each group ordered by the rest of
+the name), not by alphabetical luck:
+
+| Script | Runs | Installs |
+|------|------|------|
+| `run_once_before_00-migrate-pi-agent-dir` | before files, once | move `~/.pi/agent` → `~/.config/pi/agent` |
+| `run_before_10-install-brew-packages` | before files, every apply | Homebrew + everything in `~/.Brewfile` |
+| `run_before_20-install-linux-binaries` | before files, every apply | pre-built binaries for what Homebrew did not provide (Linux) |
+| `run_before_30-install-pi-bolt` | before files, every apply | Pi-Bolt (official installer) |
+| `run_after_05-configure-vscode` | after files, every apply | VS Code settings symlink (macOS) |
+| `run_after_10-install-permission-modes` | after files, every apply | `pi-permission-modes` + `bubblewrap`/`socat` (Linux) |
+| `run_after_99-health-check` | after files, every apply | reports what is still missing |
+
+The `99-` prefix is what makes the health check run last, after everything that could
+still have been installed. Outside CI a missing tool is a warning and the apply
+succeeds; in CI the health check fails the run. Installer logs land in
+`~/.cache/dotfiles/`: `pi-bolt-install.log`, `pi-permission-modes.log`.
+
+Only `00-migrate-pi-agent-dir` stays `run_once`: it moves a directory, so running it
+again after a deliberate rollback would move things back.
+
 ## CachyOS / Arch-based (and other Linux)
 
 On Linux the dotfiles use **Homebrew, installed into `~/.linuxbrew`** by
-`.chezmoiscripts/run_onchange_install-brew-packages.sh.tmpl`. That is Homebrew's
+`.chezmoiscripts/run_before_10-install-brew-packages.sh.tmpl`. That is Homebrew's
 official root-free install (`git clone` + symlink to `bin/brew`), so
 `/home/linuxbrew` (root-owned) is deliberately avoided. `pacman` is *not* used
 by the dotfiles - the system packages stay exactly as CachyOS ships them.
@@ -78,9 +115,10 @@ Details:
 - `brew` is looked up in `~/.linuxbrew`, `/home/linuxbrew/.linuxbrew`,
   `/opt/homebrew`, `/usr/local` - in that order, in the install scripts and in
   the managed `.bashrc` / `.zshrc` / `config.fish` (`brew shellenv`).
-- Order matters and is enforced by the script names: `install-brew-packages` runs
-  before `install-linux-binaries`, and the latter only fetches tools that are
-  still missing (it puts the Homebrew bin dirs on `PATH` to check).
+- Order is explicit: `10-install-brew-packages` runs before
+  `20-install-linux-binaries`, and the latter only fetches tools that are still
+  missing (it puts the Homebrew bin dirs on `PATH` to check). Both run on every
+  apply, so `./install.sh` twice finishes a run that was interrupted.
 - No `sudo` anywhere: `~/.linuxbrew`, `~/.local/bin` and `~/.pi` are user-owned.
 - Running as root: Homebrew refuses to run as root, so the pre-built binaries in
   `~/.local/bin` are used instead (the devcontainer runs as its normal user, so
@@ -168,10 +206,10 @@ network traffic filtered by a domain allowlist; a request to a host outside it
 `/sandbox` prints the active configuration.
 
 Installed on Linux and macOS by `chezmoi apply`
-(`.chezmoiscripts/run_onchange_after_install-permission-modes.sh.tmpl` - the
-`_after` prefix is what makes it run **after** `install-pi-bolt`, since plain
-`run_onchange_*` scripts run in alphabetical order of their target names and
-`install-p e rmission-modes` would otherwise sort before `install-p i -bolt`):
+(`.chezmoiscripts/run_after_10-install-permission-modes.sh.tmpl` - the `_after`
+prefix is what makes it run **after** `30-install-pi-bolt`, because `run_after_*`
+scripts run only once every `run_before_*` script and every file is done; with
+plain `run_*` names it would also have sorted *before* `install-p i -bolt`):
 
 - `pi-bolt install npm:pi-permission-modes` - user-scope package, dependencies
   under `$PI_CODING_AGENT_DIR/npm` (default `~/.config/pi/agent/npm`, see
@@ -229,12 +267,12 @@ Sessions stay inside the agent dir unless `PI_CODING_AGENT_SESSION_DIR` is set
 To roll back: `rm ~/.pi/agent && mv ~/.config/pi/agent ~/.pi/agent`, then drop the
 `export PI_CODING_AGENT_DIR` lines from the managed rc files.
 
-### When an install script did not run
+### Forcing the one `run_once` script to run again
 
-`run_once_*` and `run_onchange_*` scripts are recorded by content hash in
-`~/.config/chezmoi/chezmoistate.boltdb`, so `chezmoi apply` does **not** retry a
-script that already ran - and these scripts report failures as warnings rather
-than aborting the apply. To force one to run again:
+The install scripts run on every apply (see
+[Re-running](#re-running--installing-what-is-missing)), so they never need
+forcing. Only `run_once_*` scripts (the agent-dir move) are recorded in
+`~/.config/chezmoi/chezmoistate.boltdb`. To run one again:
 
 ```bash
 chezmoi state get-bucket --bucket=scriptState        # key -> {"name": "..."}

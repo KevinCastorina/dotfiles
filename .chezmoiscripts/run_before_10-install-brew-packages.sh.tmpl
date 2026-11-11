@@ -1,7 +1,13 @@
 #!/bin/bash
 
-# .chezmoiscripts/run_onchange_install-brew-packages.sh.tmpl
+# .chezmoiscripts/run_before_10-install-brew-packages.sh.tmpl
 # Installs everything declared in the managed ~/.Brewfile with Homebrew.
+#
+# This script runs on EVERY 'chezmoi apply' (run_before_*, not run_onchange_*), so
+# a formula that failed to install (mirror down, interrupt, disk full) is retried
+# the next run. `brew bundle` only installs what is missing, so a complete machine
+# costs a few seconds. Set DOTFILES_SKIP_INSTALL=1 to skip it (and the other
+# install scripts) when you only want to re-apply configuration.
 #
 # macOS: uses Homebrew and installs it first if it is missing.
 #
@@ -18,11 +24,17 @@
 #          - running as root: Homebrew refuses to run as root, so the pre-built
 #            binaries are used instead.
 #
-# Ordering: this script sorts before run_onchange_install-linux-binaries, so
-# Homebrew gets the first shot and the binary installer only fills the gaps
-# (it skips anything that is already on PATH, see the PATH setup below).
+# Ordering: chezmoi runs run_before_* scripts ordered by the rest of their file
+# name, so the "10-" prefix guarantees Homebrew gets the first shot and
+# "20-install-linux-binaries" only fills the gaps (it skips anything that is
+# already on PATH, see the PATH setup below).
 
 set -o pipefail
+
+if [ "${DOTFILES_SKIP_INSTALL:-0}" = "1" ]; then
+    echo "Skipping the Homebrew install (DOTFILES_SKIP_INSTALL=1)."
+    exit 0
+fi
 
 # Quieter, faster, non-interactive Homebrew
 export HOMEBREW_NO_ANALYTICS=1
@@ -78,8 +90,14 @@ fi
 # 2. Install the Brewfile (~/.Brewfile is managed by chezmoi).
 if command -v brew >/dev/null 2>&1; then
     echo "Brew: $(command -v brew)"
-    # Do not fail the whole apply if an optional formula cannot be installed.
-    brew bundle --global --verbose || echo "⚠️ Warning: brew bundle completed with warnings/errors."
+    # Do not fail the whole apply if an optional formula cannot be installed:
+    # the failures are listed by 99-health-check and retried on the next apply.
+    if brew bundle --global --verbose; then
+        echo "✓ Brewfile is up to date."
+    else
+        echo "⚠️ brew bundle finished with errors."
+        echo "   Re-run './install.sh' (or 'chezmoi apply') to retry the failed ones."
+    fi
 else
     echo "Homebrew not available - skipping brew bundle."
     echo "Missing tools are installed as pre-built binaries in ~/.local/bin."

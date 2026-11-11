@@ -1,7 +1,13 @@
 #!/bin/bash
 
-# .chezmoiscripts/run_after_health-check.sh.tmpl
-# Performs a final health check on installed tools.
+# .chezmoiscripts/run_after_99-health-check.sh.tmpl
+# Performs the final health check on installed tools.
+#
+# The "99-" prefix keeps this last inside the run_after_* group, so it reports on
+# everything 10-install-permission-modes could still have installed. Nothing here
+# installs anything: a missing tool is a warning locally (exit 0, so the apply
+# does not fail) and a hard failure in CI. The point of exit 0 outside CI is that
+# re-running './install.sh' or 'chezmoi apply' retries whatever is missing.
 
 set -e
 set -o pipefail  # Fail if any command in a pipe fails (important for version checks)
@@ -90,7 +96,8 @@ if [ $failed -ne 0 ]; then
         exit 1
     fi
     # Outside CI a missing tool should not mark the whole dotfiles apply as failed.
-    printf "${YELLOW}Health check: some tools are missing or not working (see above). Re-run 'chezmoi apply' to retry.${RESET}\n"
+    printf "${YELLOW}Health check: some tools are missing or not working (see above).${RESET}\n"
+    printf "${YELLOW}Re-run './install.sh' (or 'chezmoi apply') - the install scripts only fetch what is still missing.${RESET}\n"
     exit 0
 else
     echo ""

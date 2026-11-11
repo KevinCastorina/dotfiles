@@ -162,8 +162,19 @@ jobs:
           echo "Verifying applied state with chezmoi verify..."
           chezmoi verify --source "$GITHUB_WORKSPACE" --exclude=scripts
 
-      - name: Idempotency Check
-        run: ./install.sh
+      - name: Idempotency Check (re-run must retry what is missing)
+        run: |
+          ./install.sh | tee rerun.log
+          # The install scripts are unconditional (run_before_*/run_after_*, not
+          # run_onchange_*), so a second apply must reach them again. Move them
+          # back to run_onchange_* and this step fails.
+          grep -q 'Installing Packages via Homebrew' rerun.log \
+            || { echo '::error::brew installer did not run on the second apply'; exit 1; }
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            grep -q 'Installing Linux Binaries (No-Admin)' rerun.log \
+              || { echo '::error::binary installer did not run on the second apply'; exit 1; }
+          fi
+          echo 'Installers re-run on every apply: OK.'
         env:
           CI: true
 

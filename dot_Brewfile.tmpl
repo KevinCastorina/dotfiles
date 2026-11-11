@@ -11,12 +11,12 @@ brew "fd"
 brew "fish"
 {{ if eq .chezmoi.os "linux" }}
 # Pi-Bolt permission-mode sandbox: the OS sandbox + network bridge. See
-# .chezmoiscripts/run_onchange_install-permission-modes.sh.tmpl.
+# .chezmoiscripts/run_after_10-install-permission-modes.sh.tmpl.
 brew "bubblewrap"
 brew "socat"
 {{- end }}
 
-# Pi-Bolt is installed via its official installer in run_onchange_install-pi-bolt.sh.tmpl
+# Pi-Bolt is installed via its official installer in run_before_30-install-pi-bolt.sh.tmpl
 brew "chezmoi"
 {{ if eq .chezmoi.os "darwin" }}
 

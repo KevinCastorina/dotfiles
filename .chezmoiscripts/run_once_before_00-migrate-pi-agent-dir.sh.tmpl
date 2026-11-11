@@ -11,8 +11,11 @@
 # app, pi-bolt-remote-control systemd unit, VS Code task, cron) would otherwise
 # create a second, empty ~/.pi/agent and the settings would look lost.
 #
-# The "00-" prefix keeps it ahead of the install scripts by target name, but the
-# script is written to be correct in any order (and a second time): it never
+# run_once_before_00-... : chezmoi runs the run_*_before_* scripts before the
+# target files, ordered by the rest of their file name, so this runs first and
+# the 10/20/30-install-* scripts below always see the final agent dir. Once is
+# right for a move (it would otherwise undo a deliberate rollback), and the
+# script is written to be correct in any order and any number of runs: it never
 # copies over an existing directory and never merges automatically.
 
 set -o pipefail

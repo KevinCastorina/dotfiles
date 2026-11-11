@@ -1,18 +1,28 @@
 #!/bin/bash
 
-# .chezmoiscripts/run_onchange_install-pi-bolt.sh.tmpl
+# .chezmoiscripts/run_before_30-install-pi-bolt.sh.tmpl
 # Installs Pi-Bolt (https://github.com/opensec-git/Pi-Bolt) with its official installer.
+#
+# Runs on EVERY 'chezmoi apply' (run_before_*, not run_onchange_*): if the install
+# failed (bad network, unsupported CPU, missing OpenSSL 3) the next apply retries
+# it; a working install is skipped by the `command -v pi-bolt` check below. Set
+# DOTFILES_SKIP_INSTALL=1 to skip it (and the other install scripts).
 # The installer puts the release in ~/.pi-bolt and links `pi-bolt` into ~/.local/bin.
 # PIBOLT_YES=1 makes it fully non-interactive: no prompts, no optional extensions, and
 # it never edits ~/.bashrc / ~/.zshrc (those are managed by chezmoi).
 #
-# Output goes to ~/.cache/dotfiles/pi-bolt-install.log: the installer's own error
+# Idempotent: never re-downloads over an existing install. Output goes to ~/.cache/dotfiles/pi-bolt-install.log: the installer's own error
 # (unsupported CPU, no OpenSSL 3 / ssh-keygen for the signature check, blocked
 # network) is the only thing that says *why* it failed, so it must not be lost.
 
 {{ if or (eq .chezmoi.os "linux") (eq .chezmoi.os "darwin") -}}
 
 set -o pipefail
+
+if [ "${DOTFILES_SKIP_INSTALL:-0}" = "1" ]; then
+    echo "Skipping the Pi-Bolt install (DOTFILES_SKIP_INSTALL=1)."
+    exit 0
+fi
 
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -62,12 +72,10 @@ if PIBOLT_YES=1 sh "$INSTALLER" >>"$LOG" 2>&1; then
 else
     echo "⚠️  Pi-Bolt installation failed."
     show_log
-    echo "   Retry it directly: curl -fsSL https://pi-bolt.opensec.in/install.sh | PIBOLT_YES=1 sh"
-    echo "   Note: the installer verifies releases with OpenSSL 3 or OpenSSH >= 8.1 (ssh-keygen)."
-    echo "   Re-running 'chezmoi apply' will NOT retry this: run_onchange records the script's"
-    echo "   hash once it has run. To force it:"
-    echo "     chezmoi state get-bucket --bucket=scriptState   # find the key for install-pi-bolt.sh"
-    echo "     chezmoi state delete --bucket=scriptState --key=<that key> && chezmoi apply"
+    echo "   This script runs on every apply, so the next 'chezmoi apply' (or"
+    echo "   './install.sh') retries it. Note: the installer verifies releases with"
+    echo "   OpenSSL 3 or OpenSSH >= 8.1 (ssh-keygen)."
+    echo "   Or run it directly: curl -fsSL https://pi-bolt.opensec.in/install.sh | PIBOLT_YES=1 sh"
 fi
 
 echo "========================================"

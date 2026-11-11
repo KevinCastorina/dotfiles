@@ -1,6 +1,12 @@
 #!/bin/bash
 
-# Copy VS Code settings to Mac location if on Darwin
+# .chezmoiscripts/run_after_05-configure-vscode.sh.tmpl
+# Copy VS Code settings to Mac location if on Darwin.
+#
+# run_after_* (not run_once_after_*): it runs on every apply so a symlink that
+# could not be created last time is retried. It only creates what is missing, so
+# a set-up machine does nothing here, and a user-made file at $DEST is never
+# touched.
 {{ if eq .chezmoi.os "darwin" -}}
 SOURCE="$HOME/.config/Code/User/settings.json"
 DEST="$HOME/Library/Application Support/Code/User/settings.json"
