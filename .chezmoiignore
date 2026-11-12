@@ -5,9 +5,6 @@ README.md
 .github
 .devcontainer
 
-# Plan files written by Plan Mode: keep them in the repo, not in $HOME.
-plan/
-
 # Pi-Bolt's agent dir is machine-local state, never managed content: settings.json
 # holds per-machine provider/model/package choices and auth.json holds API keys.
 # It is only relocated by PI_CODING_AGENT_DIR (see
@@ -20,4 +17,3 @@ plan/
 .config/pi/agent/fff
 .config/pi/agent/models-store.json
 .config/pi/agent/*.lock
-.config/pi/agent/permission-mode/state.json

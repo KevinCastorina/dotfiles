@@ -4,7 +4,7 @@
 # Performs the final health check on installed tools.
 #
 # The "99-" prefix keeps this last inside the run_after_* group, so it reports on
-# everything 10-install-permission-modes could still have installed. Nothing here
+# everything earlier scripts could have installed. Nothing here
 # installs anything: a missing tool is a warning locally (exit 0, so the apply
 # does not fail) and a hard failure in CI. The point of exit 0 outside CI is that
 # re-running './install.sh' or 'chezmoi apply' retries whatever is missing.
@@ -72,20 +72,6 @@ fi
 # 2. Development Tools
 check_tool "pi-bolt" "Pi-Bolt"
 check_tool "chezmoi"
-
-{{ if eq .chezmoi.os "linux" -}}
-# 3. Optional: OS sandbox for the Pi-Bolt permission modes (bubblewrap + socat;
-#    ripgrep is already checked above). Not fatal: without them the sandboxed
-#    modes degrade to prompting only and say so in the footer.
-printf "Checking %-15s ... " "bwrap/socat"
-if command -v bwrap >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; then
-    printf "${GREEN}✅ Found${RESET} (%s, %s)\n" "$(bwrap --version 2>&1)" "$(socat -V 2>&1 | sed -n 2p)"
-elif [ -n "${CI:-}" ]; then
-    printf "${YELLOW}skipped (CI)${RESET}\n"
-else
-    printf "${YELLOW}⚠️ Missing${RESET} (permission-mode sandbox falls back to prompting only)\n"
-fi
-{{ end -}}
 
 echo "========================================"
 

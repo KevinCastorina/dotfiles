@@ -64,24 +64,12 @@ jobs:
           fi
           pi-bolt --version
 
-          echo "Verifying Pi-Bolt permission modes (sandbox)..."
+          echo "Verifying Pi-Bolt agent dir migration..."
           # Pi-Bolt's agent dir follows PI_CODING_AGENT_DIR (the dotfiles set it to
           # ~/.config/pi/agent in the shell rc; chezmoi's own scripts export it too).
           AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.config/pi/agent}"
-          if grep -q "pi-permission-modes" "$AGENT_DIR/settings.json" 2>/dev/null; then
-            echo "pi-permission-modes is declared in $AGENT_DIR/settings.json."
-          else
-            echo "::warning::pi-permission-modes is not declared in $AGENT_DIR/settings.json (offline npm?)."
-          fi
           if [ -e "$HOME/.pi/agent" ] && [ ! -L "$HOME/.pi/agent" ] && [ -d "$AGENT_DIR" ]; then
             echo "::warning::both ~/.pi/agent and $AGENT_DIR exist; the agent dir was not migrated."
-          fi
-          if [ "${{ runner.os }}" == "Linux" ]; then
-            if command -v bwrap >/dev/null 2>&1 && command -v socat >/dev/null 2>&1; then
-              echo "Sandbox deps present: $(bwrap --version), socat $(socat -V 2>&1 | sed -n 2p)."
-            else
-              echo "::warning::bubblewrap/socat missing - the sandboxed modes degrade to prompting only."
-            fi
           fi
 
           echo "Verifying shell configs are managed by chezmoi, contain PI_OFFLINE and set the Pi agent dir..."

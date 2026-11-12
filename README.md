@@ -8,12 +8,11 @@ Managed with [chezmoi](https://www.chezmoi.io/).
 
 - **Cross-platform**: Works on macOS, Arch-based Linux (CachyOS, Arch, EndeavourOS, Manjaro) and Debian/Ubuntu, including Devcontainers.
 - **Devcontainer Ready**: Designed to be installed automatically as containers spin up.
-- **No Admin Required**: Homebrew is installed into `~/.linuxbrew` on Linux, so no `sudo` is ever needed - not even for the sandbox dependencies.
+- **No Admin Required**: Homebrew is installed into `~/.linuxbrew` on Linux, so no `sudo` is ever needed.
 - **One package manager**: Homebrew (bottles, no compilation) on every platform; pre-built binaries only as a fallback where Homebrew is unavailable.
 - **Modern CLI Tools**: Includes configuration for `ripgrep`, `bat`, `eza`, `fzf`, `zoxide`, `fd`.
 - **Shell**: `zsh`, `bash` and `fish` startup files are managed directly by chezmoi (no oh-my-zsh / oh-my-fish required).
 - **Coding Agent**: [Pi-Bolt](https://github.com/opensec-git/Pi-Bolt) ahead-of-time compiled native Pi coding agent (`PI_OFFLINE=1`).
-- **Sandboxed Agent**: [pi-permission-modes](https://github.com/wynainfo/pi-permission-modes) — switchable **Default → Plan Mode → Build → YOLO** modes for Pi-Bolt, each pairing a `bubblewrap` OS sandbox with an allow / ask / deny policy, a network allowlist and live prompts (still no `sudo`).
 
 ## Installation
 
@@ -82,13 +81,12 @@ the name), not by alphabetical luck:
 | `run_before_20-install-linux-binaries` | before files, every apply | pre-built binaries for what Homebrew did not provide (Linux) |
 | `run_before_30-install-pi-bolt` | before files, every apply | Pi-Bolt (official installer) |
 | `run_after_05-configure-vscode` | after files, every apply | VS Code settings symlink (macOS) |
-| `run_after_10-install-permission-modes` | after files, every apply | `pi-permission-modes` + `bubblewrap`/`socat` (Linux) |
 | `run_after_99-health-check` | after files, every apply | reports what is still missing |
 
 The `99-` prefix is what makes the health check run last, after everything that could
 still have been installed. Outside CI a missing tool is a warning and the apply
 succeeds; in CI the health check fails the run. Installer logs land in
-`~/.cache/dotfiles/`: `pi-bolt-install.log`, `pi-permission-modes.log`.
+`~/.cache/dotfiles/`: `pi-bolt-install.log`.
 
 Only `00-migrate-pi-agent-dir` stays `run_once`: it moves a directory, so running it
 again after a deliberate rollback would move things back.
@@ -102,7 +100,7 @@ official root-free install (`git clone` + symlink to `bin/brew`), so
 by the dotfiles - the system packages stay exactly as CachyOS ships them.
 
 Bottles verified on CachyOS: `fish`, `ripgrep`, `bat`, `eza`, `fd`, `fzf`,
-`zoxide`, `bubblewrap`, `socat` all pour from `*.x86_64_linux.bottle` - nothing
+`zoxide` all pour from `*.x86_64_linux.bottle` - nothing
 is compiled and no build toolchain is required.
 
 ```bash
@@ -183,60 +181,6 @@ Alternatively, you can add this to your `devcontainer.json`:
 `eza` file-listing icons are enabled only when the `DOTFILES_ICONS=1`
 environment variable is set (a Nerd Font is required).
 
-## Pi-Bolt sandbox (permission modes)
-
-[pi-permission-modes](https://github.com/wynainfo/pi-permission-modes) is the
-sandbox for Pi-Bolt. Four switchable modes - **Default -> Plan Mode -> Build ->
-YOLO** (`alt+m`, `/perm <mode>`) - each pair an OS-level sandbox with an
-allow / ask / deny policy for every tool:
-
-| Mode | Behavior |
-|------|----------|
-| **Default** | Confirm every `bash`/`edit`/`write`; an approved in-project `bash` runs **sandboxed** (writes confined to the project) |
-| **Plan Mode** | In-project `bash` is **read-only**; the model writes a plan to `plan/` and hands it over for Accept / Decline |
-| **Build** | Reads, writes and in-project `bash` run without confirmation, sandboxed |
-| **YOLO** | No prompts, no sandbox |
-
-Outside the project: out-of-project access prompts, `sudo` and friends always
-prompt (detected structurally, even inside `bash -c`), and `edit`/`write` to
-protected paths (`.git/`, `.env`, dotfiles) are hard-blocked. In-project
-`bash` runs wrapped by `bubblewrap`, with writes confined to the project and
-network traffic filtered by a domain allowlist; a request to a host outside it
-**pauses while you are asked** (allow once / for the session / forever / deny).
-`/sandbox` prints the active configuration.
-
-Installed on Linux and macOS by `chezmoi apply`
-(`.chezmoiscripts/run_after_10-install-permission-modes.sh.tmpl` - the `_after`
-prefix is what makes it run **after** `30-install-pi-bolt`, because `run_after_*`
-scripts run only once every `run_before_*` script and every file is done; with
-plain `run_*` names it would also have sorted *before* `install-p i -bolt`):
-
-- `pi-bolt install npm:pi-permission-modes` - user-scope package, dependencies
-  under `$PI_CODING_AGENT_DIR/npm` (default `~/.config/pi/agent/npm`, see
-  [Pi-Bolt config location](#pi-bolt-config-location)); output goes to
-  `~/.cache/dotfiles/pi-permission-modes.log`
-- Linux sandbox deps: `brew install bubblewrap socat` (Homebrew bottles, so no
-  `sudo` and no root-owned prefix); `ripgrep` is already managed above. macOS
-  needs neither - it uses the built-in `sandbox-exec`
-- optional global config: `$PI_CODING_AGENT_DIR/permission-mode/permission-mode.json`,
-  written by `/perm init`; a project may add `.pi/permission-mode.json`, which
-  can only make things stricter
-
-```bash
-pi-bolt                      # footer shows the mode; alt+m cycles it
-pi-bolt --perm build         # start in a mode: default | plan | build | yolo
-pi-bolt --no-sandbox         # keep the modes, drop OS sandboxing
-/perm init                   # copy the stock modes to the global config
-/net, /sandbox, /shells      # network policy, sandbox state, background shells
-```
-
-Nothing needs `sudo`: the Homebrew prefix (`~/.linuxbrew`), `~/.local/bin` and
-the Pi agent dir (`~/.config/pi/agent`) are user-owned. If `bubblewrap`/`socat`
-are missing, the sandboxed modes degrade to **prompting only** and say so in the
-footer (`(!) sandbox-runtime missing`) - never silently unprotected. The
-complete reference ships with the package:
-`~/.config/pi/agent/npm/node_modules/pi-permission-modes/docs/`.
-
 ## Pi-Bolt config location
 
 Pi has no `XDG_CONFIG_HOME` support; the location of its user configuration is
@@ -245,7 +189,7 @@ set only by `PI_CODING_AGENT_DIR`. These dotfiles point it at
 
 ```
 ~/.config/pi/agent      config + state: settings.json, auth.json, models.json,
-                        npm/ packages, sessions/, permission-mode/
+                        npm/ packages, sessions/
 ~/.pi/agent             symlink -> ~/.config/pi/agent (compatibility)
 ~/.pi-bolt              the installed release (pi-bin, pi-bolt-<os>-<arch>/)
 ```
@@ -279,5 +223,4 @@ chezmoi state get-bucket --bucket=scriptState        # key -> {"name": "..."}
 chezmoi state delete --bucket=scriptState --key=<key> && chezmoi apply
 ```
 
-Installer output is kept in `~/.cache/dotfiles/`: `pi-bolt-install.log`,
-`pi-permission-modes.log`.
+Installer output is kept in `~/.cache/dotfiles/`: `pi-bolt-install.log`.
